@@ -2,6 +2,8 @@
 
 A full-stack chess platform featuring a **custom-built chess engine**, **machine-learning-based board evaluation**, and a **modern React web interface** with real-time multiplayer support.
 
+Play now at this link: https://stonkfish.vercel.app
+
 ---
 
 ## Table of Contents
