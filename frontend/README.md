@@ -1,16 +1,23 @@
-# React + Vite
+# Stonkfish Frontend (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This directory contains the user interface for the Stonkfish Chess Web App, built with React and Vite.
 
-Currently, two official plugins are available:
+## Overview
+The frontend connects to the **Node.js Express Backend** (for authentication, challenges, and user stats) and dynamically interacts with the **Python FastAPI Engine** (for engine moves and game analysis).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Key Features
+- **Live Gameplay:** Real-time matches using WebSockets via `socket.io-client`.
+- **Game Analysis:** Move-by-move breakdown, evaluation bar, and the "Ideal Move" overlay.
+- **Customizable Interface:** Choose from 4 board themes and between Unicode text pieces or high-quality Lichess Merida SVGs.
 
-## React Compiler
+## Running the Frontend
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+To run the development server:
 
-## Expanding the ESLint configuration
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+*Note: The frontend requires both the Node.js backend (default port 5000) and the Python Engine backend (default port 8000) to be running simultaneously to be fully functional. Please see the root `README.md` for comprehensive instructions on starting the entire stack.*

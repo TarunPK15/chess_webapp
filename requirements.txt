@@ -4,3 +4,9 @@ pandas
 numpy
 pyarrow
 python-chess
+fastapi
+uvicorn
+pydantic
+onnxruntime
+motor
+pymongo
