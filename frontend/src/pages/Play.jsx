@@ -267,8 +267,12 @@ export default function Play() {
         setEngineDepth(depth);
 
         // ── WebSocket setup ─────────────────────────────────────────────
-        const socket = io('http://localhost:5000');
-        socketRef.current = socket;
+        const socketUrl = import.meta.env.VITE_API_URL 
+          ? import.meta.env.VITE_API_URL.replace('/api', '') 
+          : 'http://localhost:5000';
+
+        // Connect Socket.io to the live Cloud Server
+        const socket = io(socketUrl);
 
         socket.on('connect', () => {
           console.log(`📡 Connected to WebSocket. Joining room: ${activeId}`);
