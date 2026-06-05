@@ -19,6 +19,7 @@ class ChessEngine:
         self.mode = mode
         self.depth = depth
         self.nodes_evaluated = 0 
+        self.eval_cache = {}  # Added memory cache to speed up ML inference
         
         if self.mode == 'ml':
             print(f"Initializing ML Engine (Depth {self.depth})...")
@@ -68,20 +69,31 @@ class ChessEngine:
             
         if gs.result == "0-1":
             return -9999.0 # Black wins
+            
+        # Create a unique string for this exact board position
+        board_hash = gs._get_position_signature()
         
-        if self.mode == 'ml':
-            features = self._extract_features(gs)
-            ml_score = self.ml_evaluator.score(features)
-            # Convert 0.0-1.0 probability to -10.0 to +10.0 Minimax scale
-            return (ml_score - 0.5) * 20.0
-        
-        elif self.mode == 'ml2':
+        # ML Evaluation Branch
+        if self.mode.startswith('ml'):
+            # If we've calculated this board before, return the saved score instantly
+            if board_hash in self.eval_cache:
+                return self.eval_cache[board_hash]
+                
             features = self._extract_features(gs)
             ml_score = self.ml_evaluator.score(features)
             
-            # Convert Tanh (-1.0 to 1.0) directly to Minimax pawn advantage (-15.0 to +15.0)
-            return ml_score * 15.0
+            if self.mode == 'ml':
+                # Convert 0.0-1.0 probability to -10.0 to +10.0 Minimax scale
+                final_score = (ml_score - 0.5) * 20.0
+            else: # ml2 or ml3
+                # Convert Tanh (-1.0 to 1.0) directly to Minimax pawn advantage (-15.0 to +15.0)
+                final_score = ml_score * 15.0
+                
+            # Save the result to cache before returning
+            self.eval_cache[board_hash] = final_score
+            return final_score
             
+        # Greedy Evaluation Branch
         score = 0.0
         for piece, pos in gs.white.items():
             # Use .get() with a default of 1.0 just in case a piece ID is misread

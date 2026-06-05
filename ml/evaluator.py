@@ -8,8 +8,13 @@ class MLEvaluator:
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Could not find model at {model_path}")
             
-        # Initialize ONNX Runtime session (CPU inference, incredibly fast)
-        self.session = ort.InferenceSession(model_path)
+        # Configure ONNX Runtime for single-threaded cloud performance
+        sess_options = ort.SessionOptions()
+        sess_options.intra_op_num_threads = 1
+        sess_options.inter_op_num_threads = 1
+        
+        # Initialize ONNX Runtime session with optimized CPU settings
+        self.session = ort.InferenceSession(model_path, sess_options=sess_options)
         self.input_name = self.session.get_inputs()[0].name
 
     def score(self, features: np.ndarray) -> float:
