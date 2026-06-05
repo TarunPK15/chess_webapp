@@ -360,6 +360,20 @@ export default function PlayModal({ isOpen, onClose }) {
                 </label>
                 <ColorPicker value={mlColor} onChange={setMlColor} />
               </div>
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '10px 14px',
+                fontSize: '12px',
+                color: 'var(--red)',
+                display: 'flex', gap: '8px', alignItems: 'flex-start',
+              }}>
+                <span style={{ fontSize: '16px' }}>⚠️</span>
+                <span>
+                  <strong>Warning:</strong> ML model takes a lot of time to make moves due to minimal compute available in deployment servers.
+                </span>
+              </div>
             </div>
           )}
 

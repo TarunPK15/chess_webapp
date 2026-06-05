@@ -37,6 +37,11 @@ function squareToSF(sq) {
   return [FILE_TO_COL[sq[0]], parseInt(sq[1])];
 }
 
+function sfSquareToChessjs(col, row) {
+  const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  return `${FILES[col - 1]}${row}`;
+}
+
 // Find the StonkFish piece name at a given [col, row] in the current sfState
 function findPieceAt(sfState, col, row, color) {
   const dict = color === 'w' ? sfState.white : sfState.black;
@@ -68,6 +73,7 @@ export default function Play() {
   const [isEngineThinking, setIsEngineThinking] = useState(false);
   const [evalScore,        setEvalScore]         = useState(0.0);
   const [moveHistory,      setMoveHistory]       = useState([]);
+  const [externalLastMove, setExternalLastMove]  = useState(null);
 
   // ── Game-end state ────────────────────────────────────────────────────────
   const [gameEnded,  setGameEnded]  = useState(false);
@@ -89,6 +95,16 @@ export default function Play() {
 
     // Update the StonkFish internal state
     if (data.updated_state) {
+      if (data.piece && data.target) {
+        const sfDict = sfStateRef.current.white[data.piece] ? sfStateRef.current.white : sfStateRef.current.black;
+        const oldPos = sfDict[data.piece];
+        if (oldPos) {
+          setExternalLastMove({
+            from: sfSquareToChessjs(oldPos[0], oldPos[1]),
+            to: sfSquareToChessjs(data.target[0], data.target[1])
+          });
+        }
+      }
       setSfState(data.updated_state);
       sfStateRef.current = data.updated_state;
       // Build the FEN from updated_state so ChessBoard syncs
@@ -285,6 +301,16 @@ export default function Play() {
         socket.on('pvp_move', (data) => {
           console.log('♟ PvP move received:', data);
           if (data.updated_state) {
+            if (data.piece && data.target) {
+              const sfDict = sfStateRef.current.white[data.piece] ? sfStateRef.current.white : sfStateRef.current.black;
+              const oldPos = sfDict[data.piece];
+              if (oldPos) {
+                setExternalLastMove({
+                  from: sfSquareToChessjs(oldPos[0], oldPos[1]),
+                  to: sfSquareToChessjs(data.target[0], data.target[1])
+                });
+              }
+            }
             setSfState(data.updated_state);
             sfStateRef.current = data.updated_state;
             setFen(sfStateToFen(data.updated_state));
@@ -353,6 +379,7 @@ export default function Play() {
   // ─────────────────────────────────────────────────────────────────────────
   const handlePlayerMove = async (move) => {
     setIsEngineThinking(true);
+    setExternalLastMove({ from: move.from, to: move.to });
 
     // Optimistic move history update
     setMoveHistory(prev => [...prev, move.san]);
@@ -451,12 +478,13 @@ export default function Play() {
     }}>
 
       {/* ── TOP PANEL ─────────────────────────────────────────────────── */}
-      <div style={{
+      <div className="flex-col-mobile" style={{
         width: '860px', maxWidth: '100%',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: 'var(--bg-nav)',
         border: '1px solid var(--border)',
         borderRadius: '14px', padding: '12px 18px', marginBottom: '16px',
+        gap: '12px',
       }}>
         {/* Left: engine badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -546,31 +574,31 @@ export default function Play() {
       </div>
 
       {/* ── MAIN GAME ZONE ────────────────────────────────────────────── */}
-      <div style={{
+      <div className="game-zone" style={{
         display: 'flex', gap: '14px', alignItems: 'stretch',
         justifyContent: 'center', height: '600px',
         width: '860px', maxWidth: '100%',
       }}>
 
-        {/* EVAL BAR (Left) */}
-        <div style={{
+        {/* EVAL BAR (Left/Top on mobile) */}
+        <div className="eval-bar-mobile" style={{
           width: '18px', flexShrink: 0,
           background: 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: '8px', overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
         }}>
-          {/* Black zone (top) */}
+          {/* Black zone (top/left) */}
           <div style={{
             width: '100%', background: '#1e293b',
-            transition: 'height 0.5s ease',
-            height: `${100 - whitePercentage}%`,
+            transition: 'all 0.5s ease',
+            flexBasis: `${100 - whitePercentage}%`,
           }} />
-          {/* White zone (bottom) */}
+          {/* White zone (bottom/right) */}
           <div style={{
             width: '100%', background: '#f8fafc',
-            transition: 'height 0.5s ease',
-            height: `${whitePercentage}%`,
+            transition: 'all 0.5s ease',
+            flexBasis: `${whitePercentage}%`,
             position: 'relative',
           }}>
             <span style={{
@@ -591,19 +619,20 @@ export default function Play() {
           isEngineThinking={gameType === 'pvp' ? false : isEngineThinking}
           boardOrientation={playerColor === 'b' ? 'black' : 'white'}
           onMove={handlePlayerMove}
+          externalLastMove={externalLastMove}
           onFenUpdate={(newFen) => {
             // ChessBoard tracks its own chess.js state; we track sfState separately
             // No need to sync fen up from ChessBoard — sfState drives source of truth
           }}
         />
 
-        {/* MOVE HISTORY (Right) */}
-        <div style={{
-          width: '190px', flexShrink: 0,
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '14px', padding: '14px',
-          display: 'flex', flexDirection: 'column',
+        {/* MOVE HISTORY (Right/Bottom on mobile) */}
+        <div className="game-zone-sidebar" style={{
+          width: '210px', flexShrink: 0,
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '10px', display: 'flex', flexDirection: 'column',
+          overflow: 'hidden',
         }}>
           <h3 style={{
             color: 'var(--text-muted)', fontWeight: 700, fontSize: '10px',

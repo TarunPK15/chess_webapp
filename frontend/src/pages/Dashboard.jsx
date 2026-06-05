@@ -327,7 +327,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Row */}
-        <div style={{
+        <div className="flex-col-mobile" style={{
           display: 'flex', gap: '12px', flexWrap: 'wrap',
           marginBottom: '32px',
         }}>
@@ -494,7 +494,7 @@ export default function Dashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {/* Header */}
-              <div style={{
+              <div className="game-list-header" style={{
                 display: 'grid',
                 gridTemplateColumns: '40px 1fr 1fr 80px 80px 80px',
                 gap: '12px',
@@ -515,7 +515,7 @@ export default function Dashboard() {
               {displayedGames.map((game, idx) => (
                 <div
                   key={game._id}
-                  className="glass"
+                  className="glass game-list-grid"
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '40px 1fr 1fr 80px 80px 80px',

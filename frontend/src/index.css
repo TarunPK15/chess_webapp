@@ -249,3 +249,80 @@ h1, h2, h3, h4, h5, h6 {
 .stagger > *:nth-child(3) { animation-delay: 0.15s; }
 .stagger > *:nth-child(4) { animation-delay: 0.20s; }
 .stagger > *:nth-child(5) { animation-delay: 0.25s; }
+
+/* ─── Responsive Utilities ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Common layout adjustments */
+  .flex-col-mobile {
+    flex-direction: column !important;
+  }
+  .stack-mobile > * {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .w-full-mobile {
+    width: 100% !important;
+  }
+  .hide-on-mobile {
+    display: none !important;
+  }
+  
+  /* Specific component overrides if needed */
+  .glass {
+    padding: 16px !important;
+  }
+  
+  /* Reduce font sizes */
+  h1 { font-size: 28px !important; }
+  h2 { font-size: 24px !important; }
+  
+  /* Improve touch targets */
+  button, a.btn {
+    padding: 12px 20px !important;
+  }
+  
+  .game-zone {
+    flex-direction: column !important;
+    height: auto !important;
+    align-items: center !important;
+  }
+  .game-zone-sidebar {
+    width: 100% !important;
+    max-width: 600px !important;
+    height: 300px !important; /* Fixed height for scrollable areas on mobile */
+  }
+  .eval-bar-mobile {
+    width: 100% !important;
+    max-width: 600px !important;
+    height: 12px !important;
+    flex-direction: row !important;
+  }
+  .eval-bar-mobile > div {
+    height: 100% !important;
+    transition: width 0.5s ease !important;
+  }
+  .game-list-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .game-list-grid > div {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+  .game-list-grid > div > div {
+    text-align: left !important;
+  }
+  .game-list-header {
+    display: none !important;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

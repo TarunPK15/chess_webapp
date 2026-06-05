@@ -130,9 +130,12 @@ export default function Analyze() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ width: '40px', height: '40px', border: '4px solid var(--border)', borderTop: '4px solid var(--emerald)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <h2 style={{ color: 'var(--text-secondary)' }}>Analyzing Game...</h2>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ width: '48px', height: '48px', border: '4px solid rgba(255,255,255,0.1)', borderTop: '4px solid var(--emerald)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ color: 'var(--text-primary)', marginBottom: '8px', fontSize: '20px', fontWeight: 700 }}>Your game is being analyzed.</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Sit tight. This might take a minute ⏳</p>
+        </div>
       </div>
     );
   }
@@ -193,12 +196,13 @@ export default function Analyze() {
       padding: '16px', userSelect: 'none',
     }}>
       {/* ── TOP PANEL ─────────────────────────────────────────────────── */}
-      <div style={{
+      <div className="flex-col-mobile" style={{
         width: '900px', maxWidth: '100%',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: 'var(--bg-nav)',
         border: '1px solid var(--border)',
         borderRadius: '14px', padding: '12px 18px', marginBottom: '16px',
+        gap: '12px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Link to="/dashboard" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '22px', lineHeight: 1 }}>♟</Link>
@@ -219,13 +223,13 @@ export default function Analyze() {
       </div>
 
       {/* ── MAIN CONTENT ──────────────────────────────────────────────── */}
-      <div style={{
+      <div className="game-zone" style={{
         display: 'flex', gap: '14px', alignItems: 'stretch',
         justifyContent: 'center',
         width: '900px', maxWidth: '100%',
       }}>
         {/* EVAL BAR */}
-        <div style={{
+        <div className="eval-bar-mobile" style={{
           width: '18px', flexShrink: 0,
           background: 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.1)',
@@ -234,21 +238,21 @@ export default function Analyze() {
         }}>
           {/* Black portion grows downwards */}
           <div style={{
-            flex: `${100 - whitePercentage}`,
+            flexBasis: `${100 - whitePercentage}%`,
             background: '#111',
-            transition: 'flex 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
           }} />
           {/* White portion fills the rest */}
           <div style={{
-            flex: `${whitePercentage}`,
+            flexBasis: `${whitePercentage}%`,
             background: '#fff',
-            transition: 'flex 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
           }} />
         </div>
 
         {/* BOARD */}
         <div style={{
-          width: '600px', height: '600px',
+          width: '100%', maxWidth: '600px', aspectRatio: '1 / 1',
           borderRadius: '12px', overflow: 'hidden',
           boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
           flexShrink: 0,
@@ -263,9 +267,8 @@ export default function Analyze() {
         </div>
 
         {/* ANALYSIS PANEL */}
-        <div style={{
+        <div className="game-zone-sidebar" style={{
           flexGrow: 1,
-          height: '600px',
           background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: '12px',

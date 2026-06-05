@@ -103,9 +103,11 @@ export default function ChessBoard({
   boardOrientation = 'white',   // 'white' | 'black'
   onMove = (move) => console.log('Move made:', move),
   externalSquareStyles = {},
+  externalLastMove = null,
 }) {
   const { boardTheme, pieceSet } = useSettings();
   const themeColors = BOARD_THEMES[boardTheme] || BOARD_THEMES['green'];
+
 
   const [game, setGame] = useState(() => new Chess(initialFen));
   const [moveFrom, setMoveFrom] = useState('');
@@ -287,11 +289,13 @@ export default function ChessBoard({
     return applyMove(sourceSquare, targetSquare);
   }
 
+  const effectiveLastMove = externalLastMove || lastMove;
+
   const customSquareStyles = {
     ...externalSquareStyles,
-    ...(lastMove && {
-      [lastMove.from]: { backgroundColor: 'rgba(16, 185, 129, 0.2)' },
-      [lastMove.to]:   { backgroundColor: 'rgba(16, 185, 129, 0.3)' },
+    ...(effectiveLastMove && {
+      [effectiveLastMove.from]: { backgroundColor: 'rgba(16, 185, 129, 0.2)' },
+      [effectiveLastMove.to]:   { backgroundColor: 'rgba(16, 185, 129, 0.3)' },
     }),
     ...optionSquares,
   };
@@ -342,7 +346,8 @@ export default function ChessBoard({
   return (
     <div style={{
       position: 'relative',
-      width: '600px', height: '600px',
+      width: '100%', maxWidth: '600px',
+      aspectRatio: '1 / 1',
       border: '3px solid rgba(255,255,255,0.1)',
       borderRadius: '10px',
       overflow: 'hidden',
@@ -357,7 +362,6 @@ export default function ChessBoard({
         onPieceDragEnd={onPieceDragEnd}
         onSquareClick={onSquareClick}
         customSquareStyles={customSquareStyles}
-        boardWidth={600}
         animationDuration={180}
         customDarkSquareStyle={{ backgroundColor: themeColors.dark }}
         customLightSquareStyle={{ backgroundColor: themeColors.light }}
