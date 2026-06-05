@@ -119,7 +119,6 @@ async def get_engine_move(request: MoveRequest):
 @app.post("/validate-move")
 async def validate_move(request: ValidateRequest):
     try:
-        # THE FIX: Assign the result of the classmethod directly to gs
         gs = GameState.from_dict(request.game_state)
 
         # --- TEMPORARY PRINT TO DEBUG ---
@@ -136,22 +135,35 @@ async def validate_move(request: ValidateRequest):
                 break
                 
         if not is_valid:
-            print(f"⚠️ Validation Rejected: {request.piece} to {request.target}")
+            print(f"Warning: Validation Rejected: {request.piece} to {request.target}")
             available = [list(m[1]) for m in legal_moves if m[0] == request.piece]
             print(f"   Available targets for {request.piece}: {available}")
         
         updated_state_dict = None
+        is_checkmate = False
+        is_stalemate = False
+
         if is_valid:
             updated_gs = apply_move(gs, request.piece, request.target)
             updated_state_dict = updated_gs.to_dict()
-            
+
+            # Check end conditions in the resulting position
+            next_color = 'W' if updated_gs.turn == 'w' else 'B'
+            next_legal_moves = get_legal_moves(updated_gs)
+            if len(next_legal_moves) == 0:
+                is_checkmate = is_in_check(updated_gs, next_color)
+                is_stalemate = not is_checkmate
+
         return {
             "valid": is_valid,
-            "updated_state": updated_state_dict
+            "updated_state": updated_state_dict,
+            "is_checkmate": is_checkmate,
+            "is_stalemate": is_stalemate,
         }
     except Exception as e:
         print("Validation Crash:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.post("/legal-moves")

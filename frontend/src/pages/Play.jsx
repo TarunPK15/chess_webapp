@@ -289,12 +289,35 @@ export default function Play() {
             setMoveHistory(prev => [...prev, data.move_str]);
           }
           setIsEngineThinking(false);
+          // Belt-and-suspenders: if checkmate/stalemate flags arrive on pvp_move
+          // (before game_over fires), handle them here too
+          if (data.is_checkmate) {
+            setGameEnded(true);
+            // The sender of this move won — if this event came from the opponent,
+            // that means WE lost. game_over event will carry the authoritative result.
+          } else if (data.is_stalemate) {
+            setGameEnded(true);
+          }
         });
 
         // ── PvP: listen for game over ───────────────────────────────────
         socket.on('game_over', (data) => {
+          const moveCount = sfStateRef.current?.move_history?.length || 0;
+          let resultLabel;
+          if (data.reason === 'stalemate') {
+            resultLabel = 'Draw — Stalemate';
+          } else if (data.reason === 'checkmate') {
+            // winner_id is the user who delivered checkmate
+            const iWon = data.winner_id && data.winner_id.toString() === currentUserId?.toString();
+            resultLabel = iWon ? '🏆 You Won — Checkmate!' : '☠ Defeat — Checkmate';
+          } else if (data.reason === 'forfeit') {
+            const iWon = data.by && data.by.toString() !== currentUserId?.toString();
+            resultLabel = iWon ? '🏆 You Won — Opponent Resigned' : 'Loss — Resigned';
+          } else {
+            resultLabel = data.result || 'Game Over';
+          }
           setGameEnded(true);
-          setEndStatus({ result: data.result || 'Game Over', moveCount: 0 });
+          setEndStatus({ result: resultLabel, moveCount });
         });
 
         // ── If human plays black, engine moves first ────────────────────

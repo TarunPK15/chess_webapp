@@ -4,6 +4,99 @@ import { Chess } from 'chess.js';
 import { flushSync } from 'react-dom';
 import { useSettings, BOARD_THEMES } from '../context/SettingsContext';
 
+// ─── Promotion Picker ────────────────────────────────────────────────────────
+const PROMO_PIECES = [
+  { key: 'q', unicode: { w: '♕', b: '♛' }, label: 'Queen'  },
+  { key: 'r', unicode: { w: '♖', b: '♜' }, label: 'Rook'   },
+  { key: 'b', unicode: { w: '♗', b: '♝' }, label: 'Bishop' },
+  { key: 'n', unicode: { w: '♘', b: '♞' }, label: 'Knight' },
+];
+
+function PromotionModal({ color, onSelect, onCancel, pieceSet }) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: 'rgba(8, 11, 18, 0.85)',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      backdropFilter: 'blur(6px)',
+      zIndex: 200,
+      gap: '12px',
+    }}>
+      <p style={{
+        color: '#fff', fontSize: '14px', fontWeight: 700,
+        letterSpacing: '0.15em', fontFamily: 'var(--font-heading)',
+        marginBottom: '4px',
+      }}>
+        PROMOTE PAWN
+      </p>
+      <div style={{ display: 'flex', gap: '12px' }}>
+        {PROMO_PIECES.map(({ key, unicode, label }) => (
+          <button
+            key={key}
+            title={label}
+            onClick={() => onSelect(key)}
+            style={{
+              width: '80px', height: '80px',
+              borderRadius: '12px',
+              border: '2px solid rgba(16,185,129,0.4)',
+              background: 'rgba(16,185,129,0.08)',
+              cursor: 'pointer',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s',
+              color: '#fff',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(16,185,129,0.25)';
+              e.currentTarget.style.borderColor = 'var(--emerald)';
+              e.currentTarget.style.transform = 'scale(1.08)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(16,185,129,0.08)';
+              e.currentTarget.style.borderColor = 'rgba(16,185,129,0.4)';
+              e.currentTarget.style.transform = '';
+            }}
+          >
+            {pieceSet === 'merida' ? (
+              <div style={{
+                width: '52px', height: '52px',
+                backgroundImage: `url(/pieces/merida/${color}${key.toUpperCase()}.svg)`,
+                backgroundSize: 'contain',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+              }} />
+            ) : (
+              <span style={{
+                fontSize: '42px', lineHeight: 1,
+                color: color === 'w' ? '#fff' : '#1e293b',
+                textShadow: color === 'w' ? '0 0 3px #000' : '0 0 3px #fff',
+              }}>
+                {unicode[color]}
+              </span>
+            )}
+            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>
+              {label.toUpperCase()}
+            </span>
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={onCancel}
+        style={{
+          marginTop: '4px',
+          background: 'none', border: 'none',
+          color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
+          fontSize: '12px', letterSpacing: '0.08em',
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
 export default function ChessBoard({ 
   initialFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 
   isEngineThinking = false,
@@ -18,6 +111,9 @@ export default function ChessBoard({
   const [moveFrom, setMoveFrom] = useState('');
   const [optionSquares, setOptionSquares] = useState({});
   const [lastMove, setLastMove] = useState(null);
+
+  // Pending promotion: { from, to, gameCopy } — awaiting user piece choice
+  const [pendingPromotion, setPendingPromotion] = useState(null);
 
   // When the engine makes a move, the parent updates initialFen.
   // We need to sync our chess.js game to the new FEN.
@@ -34,6 +130,7 @@ export default function ChessBoard({
         setGame(newGame);
         setOptionSquares({});
         setMoveFrom('');
+        setPendingPromotion(null);
       }
     } catch (e) {
       // FEN might be invalid during transition — ignore
@@ -71,12 +168,77 @@ export default function ChessBoard({
   }
 
   // ─── Block moves if it's not the player's turn ──────────────────────────
-  // Determine which side's pieces the player can move:
-  // boardOrientation 'white' → player moves white pieces (turn === 'w')
-  // boardOrientation 'black' → player moves black pieces (turn === 'b')
   function isPlayerTurn() {
     const playerSide = boardOrientation === 'black' ? 'b' : 'w';
     return game.turn() === playerSide;
+  }
+
+  // ─── Detect promotion move ───────────────────────────────────────────────
+  function isPromotionMove(from, to) {
+    const piece = game.get(from);
+    if (!piece || piece.type !== 'p') return false;
+    // White pawn moving to rank 8, or black pawn moving to rank 1
+    const toRank = parseInt(to[1]);
+    return (piece.color === 'w' && toRank === 8) || (piece.color === 'b' && toRank === 1);
+  }
+
+  // ─── Called when user selects a promotion piece ─────────────────────────
+  function handlePromotionSelect(promotionPiece) {
+    if (!pendingPromotion) return;
+    const { from, to, gameCopy } = pendingPromotion;
+    try {
+      const move = gameCopy.move({ from, to, promotion: promotionPiece });
+      if (move) {
+        setGame(gameCopy);
+        setMoveFrom('');
+        setOptionSquares({});
+        setLastMove({ from: move.from, to: move.to });
+        onMove(move);
+      }
+    } catch { /* invalid — just close */ }
+    setPendingPromotion(null);
+  }
+
+  function handlePromotionCancel() {
+    setPendingPromotion(null);
+    setMoveFrom('');
+    setOptionSquares({});
+  }
+
+  // ─── Apply a move (shared by click and drag) ─────────────────────────────
+  function applyMove(from, to) {
+    const gameCopy = new Chess(game.fen());
+
+    // Check for promotion first — without committing
+    if (isPromotionMove(from, to)) {
+      // Validate the target square is reachable (try with queen as probe)
+      try {
+        const probe = new Chess(game.fen());
+        const testMove = probe.move({ from, to, promotion: 'q' });
+        if (!testMove) return false;
+      } catch {
+        return false;
+      }
+      // Store pending and show modal
+      setPendingPromotion({ from, to, gameCopy });
+      setMoveFrom('');
+      setOptionSquares({});
+      return true; // consumed
+    }
+
+    // Normal move
+    try {
+      const move = gameCopy.move({ from, to, promotion: 'q' });
+      if (move) {
+        setGame(gameCopy);
+        setMoveFrom('');
+        setOptionSquares({});
+        setLastMove({ from: move.from, to: move.to });
+        onMove(move);
+        return true;
+      }
+    } catch { /* fall through */ }
+    return false;
   }
 
   // ─── DRAG: PIECE GRAB ────────────────────────────────────────────────────
@@ -96,7 +258,7 @@ export default function ChessBoard({
 
   // ─── CLICK TO MOVE ───────────────────────────────────────────────────────
   function onSquareClick(square) {
-    if (isEngineThinking || !isPlayerTurn()) return;
+    if (isEngineThinking || !isPlayerTurn() || pendingPromotion) return;
 
     if (!moveFrom) {
       const hasMoveOptions = getMoveOptions(square);
@@ -110,22 +272,9 @@ export default function ChessBoard({
       return;
     }
 
-    const gameCopy = new Chess(game.fen());
-    try {
-      const move = gameCopy.move({ from: moveFrom, to: square, promotion: 'q' });
-      if (move) {
-        setGame(gameCopy);
-        setMoveFrom('');
-        setOptionSquares({});
-        setLastMove({ from: move.from, to: move.to });
-        onMove(move);
-      } else {
-        // Try selecting the clicked square as new source
-        const hasMoveOptions = getMoveOptions(square);
-        if (hasMoveOptions) setMoveFrom(square);
-        else { setMoveFrom(''); setOptionSquares({}); }
-      }
-    } catch {
+    const moved = applyMove(moveFrom, square);
+    if (!moved) {
+      // Try selecting the clicked square as new source
       const hasMoveOptions = getMoveOptions(square);
       if (hasMoveOptions) setMoveFrom(square);
       else { setMoveFrom(''); setOptionSquares({}); }
@@ -135,23 +284,7 @@ export default function ChessBoard({
   // ─── DRAG AND DROP ────────────────────────────────────────────────────────
   function onDrop(sourceSquare, targetSquare) {
     if (isEngineThinking || !isPlayerTurn()) return false;
-
-    const gameCopy = new Chess(game.fen());
-    try {
-      const move = gameCopy.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
-      if (move) {
-        setGame(gameCopy);
-        setOptionSquares({});
-        setMoveFrom('');
-        setLastMove({ from: move.from, to: move.to });
-        onMove(move);
-        return true;
-      }
-    } catch {
-      setOptionSquares({});
-      setMoveFrom('');
-    }
-    return false;
+    return applyMove(sourceSquare, targetSquare);
   }
 
   const customSquareStyles = {
@@ -201,6 +334,11 @@ export default function ChessBoard({
     return pieces;
   };
 
+  // Determine the promotion piece color based on whose turn it is
+  const promotingColor = pendingPromotion
+    ? (boardOrientation === 'black' ? 'b' : 'w')
+    : 'w';
+
   return (
     <div style={{
       position: 'relative',
@@ -224,8 +362,18 @@ export default function ChessBoard({
         customDarkSquareStyle={{ backgroundColor: themeColors.dark }}
         customLightSquareStyle={{ backgroundColor: themeColors.light }}
         customPieces={pieceSet === 'unicode' ? getUnicodePieces() : getMeridaPieces()}
-        arePiecesDraggable={!isEngineThinking && isPlayerTurn()}
+        arePiecesDraggable={!isEngineThinking && isPlayerTurn() && !pendingPromotion}
       />
+
+      {/* Promotion picker overlay */}
+      {pendingPromotion && (
+        <PromotionModal
+          color={promotingColor}
+          onSelect={handlePromotionSelect}
+          onCancel={handlePromotionCancel}
+          pieceSet={pieceSet}
+        />
+      )}
 
       {/* Engine thinking overlay */}
       {isEngineThinking && (

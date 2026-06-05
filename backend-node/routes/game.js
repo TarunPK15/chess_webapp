@@ -104,22 +104,56 @@ router.post('/:id/move', auth, async (req, res) => {
 
         // --- 3. FORK: PVP vs BOT ---
         if (game.game_type === 'pvp') {
-            // PVP MODE: Save move and broadcast to the opponent instantly
+            // PVP MODE: Save move and broadcast to both players instantly
             game.current_state = validateRes.data.updated_state;
+
+            const isCheckmate = validateRes.data.is_checkmate;
+            const isStalemate = validateRes.data.is_stalemate;
+
+            // Determine winner/loser: the player who just moved delivered checkmate
+            // so the OTHER player loses (the one whose turn it now is in updated_state)
+            if (isCheckmate) {
+                // The player who moved wins; the player whose turn it now is loses
+                const winnerIsWhite = req.user.userId === game.white_player_id.toString();
+                game.result = winnerIsWhite ? 'win' : 'loss';
+                if (game.white_player_id) await updateUserStats(game.white_player_id, winnerIsWhite ? 'win' : 'loss', game.moves.length);
+                if (game.black_player_id) await updateUserStats(game.black_player_id, winnerIsWhite ? 'loss' : 'win', game.moves.length);
+            } else if (isStalemate) {
+                game.result = 'draw';
+                if (game.white_player_id) await updateUserStats(game.white_player_id, 'draw', game.moves.length);
+                if (game.black_player_id) await updateUserStats(game.black_player_id, 'draw', game.moves.length);
+            }
+
             await game.save();
 
+            // Emit the move to both players in the room
             if (io) io.to(gameId).emit('pvp_move', {
                 piece: piece,
                 target: target,
                 move_str: humanMoveStr,
-                updated_state: validateRes.data.updated_state
+                updated_state: validateRes.data.updated_state,
+                is_checkmate: isCheckmate,
+                is_stalemate: isStalemate,
             });
+
+            // If game ended, emit game_over so both clients show the end screen
+            if (isCheckmate || isStalemate) {
+                const winnerUserId = isCheckmate ? req.user.userId : null;
+                if (io) io.to(gameId).emit('game_over', {
+                    result: game.result,
+                    reason: isCheckmate ? 'checkmate' : 'stalemate',
+                    winner_id: winnerUserId,
+                });
+            }
 
             return res.json({
                 valid: true,
                 human_move: humanMoveStr,
-                game_status: game.result
+                game_status: game.result,
+                is_checkmate: isCheckmate,
+                is_stalemate: isStalemate,
             });
+
 
         } else {
             // BOT MODE: Ask Python for the counter-attack
