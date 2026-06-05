@@ -160,9 +160,17 @@ def apply_move(gs: GameState, piece: str, target: list) -> GameState:
             del new_gs.black[piece]
             new_gs.black[new_piece_id] = target
 
-    # Finalize state metadata
+    # --- Finalize state metadata ---
+    
+    # Record the move string (e.g., "WP4_44") in the history array
+    move_str = f"{piece}_{target[0]}{target[1]}"
+    new_gs.move_history.append(move_str)
+    
     new_gs.en_passant_target = next_ep_target
+    
+    # This single line handles 50-move rule, threefold repetition, and turn swapping!
     new_gs.update_turn_and_clocks(is_pawn_move, is_capture)
+    
     return new_gs
 
 def is_in_check(gs: GameState, color: str) -> bool:

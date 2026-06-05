@@ -27,3 +27,6 @@ env/
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.csv
+*.parquet
+*.pgn

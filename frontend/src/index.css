@@ -1,0 +1,251 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+/* ─── Design Tokens ──────────────────────────────────────────────────── */
+:root {
+  /* Colors */
+  --bg-base:        #080b12;
+  --bg-surface:     #0f1420;
+  --bg-card:        rgba(255, 255, 255, 0.04);
+  --bg-card-hover:  rgba(255, 255, 255, 0.07);
+  --bg-input:       rgba(255, 255, 255, 0.06);
+
+  --border:         rgba(255, 255, 255, 0.08);
+  --border-strong:  rgba(255, 255, 255, 0.15);
+
+  --bg-nav:         rgba(15, 20, 32, 0.8);
+
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted:     #475569;
+
+  /* Brand */
+  --emerald:        #10b981;
+  --emerald-dim:    rgba(16, 185, 129, 0.15);
+  --emerald-glow:   rgba(16, 185, 129, 0.35);
+  --amber:          #f59e0b;
+  --amber-dim:      rgba(245, 158, 11, 0.15);
+  --red:            #ef4444;
+  --red-dim:        rgba(239, 68, 68, 0.15);
+  --blue:           #3b82f6;
+  --blue-dim:       rgba(59, 130, 246, 0.15);
+  --gold:           #fbbf24;
+  --gold-dim:       rgba(251, 191, 36, 0.15);
+
+  /* Typography */
+  --font-sans:      'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading:   'Outfit', system-ui, -apple-system, sans-serif;
+  --font-mono:      ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  /* Radii */
+  --radius-sm:      6px;
+  --radius-md:      12px;
+  --radius-lg:      18px;
+  --radius-xl:      24px;
+
+  /* Shadows */
+  --shadow-card:    0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-glow:    0 0 40px rgba(16, 185, 129, 0.12);
+}
+
+.light {
+  /* Colors */
+  --bg-base:        #f8fafc;
+  --bg-surface:     #ffffff;
+  --bg-card:        rgba(0, 0, 0, 0.03);
+  --bg-card-hover:  rgba(0, 0, 0, 0.06);
+  --bg-input:       rgba(0, 0, 0, 0.05);
+
+  --border:         rgba(0, 0, 0, 0.1);
+  --border-strong:  rgba(0, 0, 0, 0.18);
+
+  --bg-nav:         rgba(255, 255, 255, 0.8);
+
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+
+  /* Brand (slightly darkened for better contrast on white) */
+  --emerald:        #059669;
+  --emerald-dim:    rgba(5, 150, 105, 0.15);
+  --emerald-glow:   rgba(5, 150, 105, 0.25);
+  --amber:          #d97706;
+  --amber-dim:      rgba(217, 119, 6, 0.15);
+  --red:            #dc2626;
+  --red-dim:        rgba(220, 38, 38, 0.15);
+  --blue:           #2563eb;
+  --blue-dim:       rgba(37, 99, 235, 0.15);
+  --gold:           #d97706;
+  --gold-dim:       rgba(217, 119, 6, 0.15);
+
+  /* Shadows */
+  --shadow-card:    0 4px 24px rgba(0, 0, 0, 0.08);
+  --shadow-glow:    0 0 40px rgba(5, 150, 105, 0.1);
+}
+
+/* ─── Reset ──────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+/* ─── Custom Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: rgba(255,255,255,0.12); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover  { background: rgba(255,255,255,0.2); }
+
+/* ─── Glass Card Utility ─────────────────────────────────────────────── */
+.glass {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.glass:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-strong);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+/* ─── Stat Badge Chips ───────────────────────────────────────────────── */
+.badge-win  { background: var(--emerald-dim); color: var(--emerald); border: 1px solid var(--emerald-glow); }
+.badge-loss { background: var(--red-dim);     color: var(--red);     border: 1px solid rgba(239,68,68,0.3); }
+.badge-draw { background: rgba(148,163,184,0.1); color: var(--text-secondary); border: 1px solid rgba(148,163,184,0.2); }
+.badge-abandoned { background: rgba(100,116,139,0.1); color: var(--text-muted); border: 1px solid rgba(100,116,139,0.2); }
+
+/* ─── Input Base ─────────────────────────────────────────────────────── */
+.sf-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.sf-input::placeholder { color: var(--text-muted); }
+.sf-input:focus {
+  border-color: var(--emerald);
+  background: rgba(16, 185, 129, 0.05);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* ─── Button Variants ────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--emerald);
+  color: #000;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+.btn-primary:hover:not(:disabled) {
+  background: #0ea472;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+.btn-ghost {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.btn-danger {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid rgba(239,68,68,0.3);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--red);
+  color: #fff;
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.animate-fade-in-up { animation: fadeInUp 0.4s ease forwards; }
+.animate-fade-in    { animation: fadeIn   0.3s ease forwards; }
+.animate-scale-in   { animation: scaleIn  0.25s ease forwards; }
+
+/* Staggered children animation */
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.20s; }
+.stagger > *:nth-child(5) { animation-delay: 0.25s; }
