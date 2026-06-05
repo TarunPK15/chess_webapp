@@ -380,8 +380,14 @@ float minimax(int* board, int depth, float alpha, float beta, int turn, int move
     }
 }
 
+// --- OS-AWARE EXPORT FIX ---
 extern "C" {
-    EXPORT void get_best_move(int* board, int target_depth, int move_count, int turn, int* recent_starts, int num_recent, int* past_boards, int num_past, int* out_move) {
+#ifdef _WIN32
+    __declspec(dllexport) void get_best_move(int* board, int target_depth, int move_count, int turn, int* recent_starts, int num_recent, int* past_boards, int num_past, int* out_move) {
+#else
+    void get_best_move(int* board, int target_depth, int move_count, int turn, int* recent_starts, int num_recent, int* past_boards, int num_past, int* out_move) {
+#endif
+
         init_zobrist();
         uint64_t root_hash = compute_initial_hash(board, turn);
 
