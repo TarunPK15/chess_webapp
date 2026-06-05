@@ -301,22 +301,35 @@ h1, h2, h3, h4, h5, h6 {
     height: 100% !important;
     transition: width 0.5s ease !important;
   }
-  .game-list-grid {
+  .grid-mobile-stack {
     display: flex !important;
     flex-direction: column !important;
-    gap: 8px !important;
   }
-  .game-list-grid > div {
-    display: flex !important;
+  .nav-mobile {
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 16px !important;
+  }
+  .nav-actions-mobile {
     flex-wrap: wrap !important;
-    gap: 8px !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    width: 100% !important;
+    justify-content: center !important;
   }
-  .game-list-grid > div > div {
-    text-align: left !important;
+  .game-row-mobile {
+    display: grid !important;
+    grid-template-columns: 40px 1fr auto !important;
+    grid-template-areas: 
+      "badge opponent date"
+      "type moves action" !important;
+    gap: 12px 8px !important;
+    padding: 12px !important;
   }
+  .game-row-mobile > :nth-child(1) { grid-area: badge; }
+  .game-row-mobile > :nth-child(2) { grid-area: opponent; }
+  .game-row-mobile > :nth-child(3) { grid-area: date; text-align: right !important; }
+  .game-row-mobile > :nth-child(4) { grid-area: moves; text-align: left !important; }
+  .game-row-mobile > :nth-child(5) { grid-area: type; text-align: left !important; }
+  .game-row-mobile > :nth-child(6) { grid-area: action; text-align: right !important; }
+  
   .game-list-header {
     display: none !important;
   }

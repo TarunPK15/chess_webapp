@@ -217,7 +217,7 @@ export default function Dashboard() {
       background: 'radial-gradient(ellipse at 20% 0%, rgba(16,185,129,0.04) 0%, transparent 50%), var(--bg-base)',
     }}>
       {/* ── Topbar ────────────────────────────────────────────────────────── */}
-      <nav style={{
+      <nav className="nav-mobile" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '16px 32px',
         borderBottom: '1px solid var(--border)',
@@ -237,7 +237,7 @@ export default function Dashboard() {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="nav-actions-mobile" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Link to="/leaderboard" style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '7px 14px', borderRadius: 'var(--radius-sm)',
@@ -346,7 +346,7 @@ export default function Dashboard() {
         </div>
 
         {/* Play CTA + Leaderboard Banner */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '36px' }}>
+        <div className="grid-mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '36px' }}>
 
           {/* Play Now Card */}
           <div
@@ -515,7 +515,7 @@ export default function Dashboard() {
               {displayedGames.map((game, idx) => (
                 <div
                   key={game._id}
-                  className="glass game-list-grid"
+                  className="glass game-row-mobile"
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '40px 1fr 1fr 80px 80px 80px',
