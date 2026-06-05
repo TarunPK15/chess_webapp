@@ -5,7 +5,7 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
-const PYTHON_API = 'http://127.0.0.1:5001';
+const PYTHON_API = process.env.PYTHON_SERVICE_URL || 'http://localhost:5001';
 
 // --- Helper: Update User Stats on Game Over ---
 async function updateUserStats(userId, result, totalMoves) {
