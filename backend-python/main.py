@@ -15,9 +15,13 @@ from engine.move_generator import get_legal_moves, apply_move, is_in_check
 
 app = FastAPI(title="Stonkfish Engine API")
 
+# --- UPDATED CORS POLICY ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], # Your React Frontend
+    allow_origins=[
+        "http://localhost:5173",          # Local development
+        "https://stonkfish.vercel.app"    # Live Vercel production
+    ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

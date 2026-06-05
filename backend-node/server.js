@@ -8,9 +8,20 @@ const { Server } = require('socket.io'); // Added for Socket.io
 const app = express();
 const server = http.createServer(app); // Wrap express in standard HTTP server
 
-// Initialize WebSockets
+// --- DEFINE ALLOWED ORIGINS ---
+// This ensures both local development and your live Vercel app can connect
+const allowedOrigins = [
+    'https://stonkfish.vercel.app', 
+    'http://localhost:5173'
+];
+
+// Initialize WebSockets with restricted CORS
 const io = new Server(server, {
-    cors: { origin: '*', methods: ['GET', 'POST'] }
+    cors: { 
+        origin: allowedOrigins, 
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
 });
 
 // Make 'io' globally accessible to our routes (like game.js)
@@ -35,15 +46,27 @@ io.on('connection', (socket) => {
     });
 });
 
-// Middleware
-app.use(cors());
+// Middleware - Restricted Express CORS
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) === -1) {
+            var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
+    credentials: true
+}));
 app.use(express.json());
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/games', require('./routes/game')); 
-app.use('/api/challenges', require('./routes/challenge')); // <-- Add this
+app.use('/api/challenges', require('./routes/challenge')); 
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
