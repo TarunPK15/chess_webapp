@@ -2,7 +2,8 @@ import axios from 'axios';
 import useAuthStore from '../store/useAuthStore';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api', // Pointing to Node.js!
+  // This tells Vite: "If I have an environment variable, use it. Otherwise, use localhost."
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api', 
 });
 
 apiClient.interceptors.request.use((config) => {
