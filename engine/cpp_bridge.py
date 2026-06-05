@@ -1,6 +1,6 @@
-# engine/cpp_bridge.py
 import ctypes
 import os
+import platform
 
 # Change this at the top of the file
 PIECE_TYPES = {'P': 1, 'N': 2, 'B': 3, 'R': 4, 'Q': 5, 'K': 6}
@@ -18,8 +18,16 @@ def load_cpp_engine():
         return
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        dll_path = os.path.join(current_dir, "greedy.dll")
-        cpp_engine = ctypes.CDLL(dll_path)
+        
+        # --- THE FIX: Detect OS and load the correct library ---
+        if platform.system() == "Windows":
+            lib_file = "greedy.dll"
+        else:
+            lib_file = "greedy.so"  # Linux shared object file
+            
+        lib_path = os.path.join(current_dir, lib_file)
+        cpp_engine = ctypes.CDLL(lib_path)
+        
     except Exception as e:
         print(f"DEBUG: Failed to load C++ Engine: {e}")
 
