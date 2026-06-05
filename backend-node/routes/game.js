@@ -304,28 +304,71 @@ router.post('/:id/draw', auth, async (req, res) => {
 // @desc    Get the current user's game history (most recent first)
 router.get('/my-games', auth, async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 20;
-        const games = await Game.find({ user_id: req.user.userId })
+        const limit = parseInt(req.query.limit) || 50;
+        const userId = req.user.userId;
+
+        // Fetch games where this user is any participant:
+        //   - bot games: user_id === userId
+        //   - pvp games: white_player_id or black_player_id === userId
+        const games = await Game.find({
+            $or: [
+                { user_id: userId },
+                { white_player_id: userId },
+                { black_player_id: userId },
+            ]
+        })
             .sort({ created_at: -1 })
             .limit(limit)
             .populate('white_player_id', 'username')
             .populate('black_player_id', 'username')
             .lean();
 
-        const formatted = games.map(g => ({
-            _id: g._id,
-            game_type: g.game_type,
-            result: g.result,
-            engine_mode: g.engine_mode,
-            engine_depth: g.engine_depth,
-            player_color: g.player_color,
-            move_count: g.moves ? g.moves.length : 0,
-            duration: g.duration,
-            created_at: g.created_at,
-            opponent: g.game_type === 'pvp'
-                ? (g.player_color === 'w' ? g.black_player_id?.username : g.white_player_id?.username) || 'Opponent'
-                : (g.engine_mode && g.engine_mode.startsWith('ml') ? `ML StonkFish (depth ${g.engine_depth})` : `Greedy StonkFish (depth ${g.engine_depth})`)
-        }));
+        const formatted = games.map(g => {
+            // Derive which color this user played (matters for PvP)
+            let playerColor = g.player_color || 'w';
+            if (g.game_type === 'pvp') {
+                const whiteId = g.white_player_id?._id?.toString() || g.white_player_id?.toString();
+                playerColor = whiteId === userId.toString() ? 'w' : 'b';
+            }
+
+            // Derive result from this user's perspective for PvP games.
+            // The DB stores result relative to the game creator (user_id).
+            // If this user is NOT the creator, invert win/loss.
+            let result = g.result;
+            if (g.game_type === 'pvp' && g.result !== 'abandoned' && g.result !== 'draw') {
+                const creatorId = g.user_id?.toString();
+                const isCreator = creatorId === userId.toString();
+                if (!isCreator) {
+                    if (g.result === 'win') result = 'loss';
+                    else if (g.result === 'loss') result = 'win';
+                }
+            }
+
+            // Derive opponent label
+            let opponent;
+            if (g.game_type === 'pvp') {
+                opponent = playerColor === 'w'
+                    ? (g.black_player_id?.username || 'Opponent')
+                    : (g.white_player_id?.username || 'Opponent');
+            } else {
+                opponent = g.engine_mode && g.engine_mode.startsWith('ml')
+                    ? `ML StonkFish (depth ${g.engine_depth})`
+                    : `Greedy StonkFish (depth ${g.engine_depth})`;
+            }
+
+            return {
+                _id: g._id,
+                game_type: g.game_type,
+                result,
+                engine_mode: g.engine_mode,
+                engine_depth: g.engine_depth,
+                player_color: playerColor,
+                move_count: g.moves ? g.moves.length : 0,
+                duration: g.duration,
+                created_at: g.created_at,
+                opponent,
+            };
+        });
 
         res.json(formatted);
     } catch (err) {

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import apiClient from '../services/apiClient';
 import ChessBoard from '../components/ChessBoard';
+import useAuthStore from '../store/useAuthStore';
 
 // ─── Starting position in StonkFish internal format ─────────────────────────
 const STARTING_GAME_STATE = {
@@ -48,6 +49,8 @@ function findPieceAt(sfState, col, row, color) {
 export default function Play() {
   const { game_id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const currentUserId = user?.userId;
 
   // ── Game meta (loaded from DB) ─────────────────────────────────────────────
   const [currentGameId, setCurrentGameId]   = useState(game_id || null);
@@ -233,10 +236,19 @@ export default function Play() {
           // Fetch the game's settings from DB to display correctly
           const gameRes = await apiClient.get(`/games/${activeId}`);
           const g = gameRes.data;
-          color = g.player_color  || 'w';
           gType = g.game_type     || 'bot';
           mode  = g.engine_mode   || 'ml3';
           depth = g.engine_depth  || 3;
+
+          // ── Determine player color ──────────────────────────────────────
+          if (gType === 'pvp') {
+            // For PvP, derive color from which player slot this user fills
+            const whiteId = g.white_player_id?._id || g.white_player_id?.toString?.() || g.white_player_id;
+            color = whiteId?.toString() === currentUserId?.toString() ? 'w' : 'b';
+          } else {
+            color = g.player_color || 'w';
+          }
+
           if (g.current_state) {
             initialState = g.current_state;
           }
@@ -264,6 +276,26 @@ export default function Play() {
         });
 
         socket.on('engine_move', handleEngineMove);
+
+        // ── PvP: listen for opponent's move and update own board ────────
+        socket.on('pvp_move', (data) => {
+          console.log('♟ PvP move received:', data);
+          if (data.updated_state) {
+            setSfState(data.updated_state);
+            sfStateRef.current = data.updated_state;
+            setFen(sfStateToFen(data.updated_state));
+          }
+          if (data.move_str) {
+            setMoveHistory(prev => [...prev, data.move_str]);
+          }
+          setIsEngineThinking(false);
+        });
+
+        // ── PvP: listen for game over ───────────────────────────────────
+        socket.on('game_over', (data) => {
+          setGameEnded(true);
+          setEndStatus({ result: data.result || 'Game Over', moveCount: 0 });
+        });
 
         // ── If human plays black, engine moves first ────────────────────
         // Only trigger if no moves have been played
@@ -316,19 +348,26 @@ export default function Play() {
     const sfTarget = [toCol, toRow];
 
     try {
-      await apiClient.post(`/games/${currentGameId}/move`, {
+      const res = await apiClient.post(`/games/${currentGameId}/move`, {
         game_state: sfStateRef.current,
         piece:      sfPiece,
         target:     sfTarget,
       });
-      // Engine response comes via WebSocket 'engine_move' event
-      // If game-over check for human winning:
+
+      // For PvP: update own state immediately from the validated response.
+      // The opponent will receive the update via the pvp_move WebSocket event.
+      if (gameType === 'pvp') {
+        // The backend returns the validated (post-move) state directly in the HTTP response
+        // But we need the updated_state. It is emitted via socket — we also need it here.
+        // The pvp_move socket event fires to ALL in the room including sender,
+        // so our own pvp_move listener will also fire and update our state.
+        setIsEngineThinking(false);
+      }
+      // For bot games, the engine_move socket event will fire and update state + clear thinking.
     } catch (error) {
       const errMsg = error.response?.data?.error || error.message;
       console.error('Error submitting player move:', errMsg);
       setIsEngineThinking(false);
-      // Note: ChessBoard already applied the move visually via chess.js.
-      // If server rejects it, we'd need to revert — for now log only.
     }
   };
 
@@ -522,7 +561,7 @@ export default function Play() {
         <ChessBoard
           key={currentGameId}
           initialFen={fen}
-          isEngineThinking={isEngineThinking}
+          isEngineThinking={gameType === 'pvp' ? false : isEngineThinking}
           boardOrientation={playerColor === 'b' ? 'black' : 'white'}
           onMove={handlePlayerMove}
           onFenUpdate={(newFen) => {
