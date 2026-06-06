@@ -127,6 +127,7 @@ export default function Dashboard() {
   const [isPlayModalOpen, setIsPlayModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [pendingChallenge, setPendingChallenge] = useState(null);
+  const [pendingChallengesList, setPendingChallengesList] = useState([]);
   const [acceptedChallenge, setAcceptedChallenge] = useState(null);
   const [pendingDrawOffer, setPendingDrawOffer] = useState(null);
   const socketRef = useRef(null);
