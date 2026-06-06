@@ -106,6 +106,9 @@ function DepthSlider({ value, onChange, min, max, suggested, accentColor }) {
           ⚠ Deep search — may take several seconds
         </p>
       )}
+      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', textAlign: 'center' }}>
+        Higher depth = more time per move and higher difficulty
+      </p>
     </div>
   );
 }
@@ -340,25 +343,11 @@ export default function PlayModal({ isOpen, onClose }) {
               }}>
                 <div style={{ fontSize: '28px' }}>🧠</div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '14px' }}>ML StonkFish</div>
+                  <div style={{ fontWeight: 700, fontSize: '14px' }}>Machine Learning</div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Neural network evaluator · Learns from real games
+                    State-of-the-art neural network evaluation
                   </div>
                 </div>
-              </div>
-              <DepthSlider
-                value={mlDepth}
-                onChange={setMlDepth}
-                min={1}
-                max={6}
-                suggested={3}
-                accentColor="var(--emerald)"
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                  Your Color
-                </label>
-                <ColorPicker value={mlColor} onChange={setMlColor} />
               </div>
               <div style={{
                 background: 'rgba(239, 68, 68, 0.08)',
@@ -373,6 +362,20 @@ export default function PlayModal({ isOpen, onClose }) {
                 <span>
                   <strong>Warning:</strong> ML model takes a lot of time to make moves due to minimal compute available in deployment servers.
                 </span>
+              </div>
+              <DepthSlider
+                value={mlDepth}
+                onChange={setMlDepth}
+                min={1}
+                max={3}
+                suggested={2}
+                accentColor="var(--emerald)"
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                  Your Color
+                </label>
+                <ColorPicker value={mlColor} onChange={setMlColor} />
               </div>
             </div>
           )}
@@ -399,7 +402,7 @@ export default function PlayModal({ isOpen, onClose }) {
                 value={greedyDepth}
                 onChange={setGreedyDepth}
                 min={1}
-                max={8}
+                max={5}
                 suggested={3}
                 accentColor="var(--amber)"
               />
