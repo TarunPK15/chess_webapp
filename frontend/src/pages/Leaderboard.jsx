@@ -158,7 +158,8 @@ export default function Leaderboard() {
         </div>
 
         {/* Table */}
-        <div className="glass" style={{ overflow: 'hidden', animation: 'fadeInUp 0.4s ease 0.15s both' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
+          <div className="glass" style={{ minWidth: '600px', overflow: 'hidden', animation: 'fadeInUp 0.4s ease 0.15s both' }}>
           {/* Table Header */}
           <div style={{
             display: 'grid',
@@ -292,6 +293,7 @@ export default function Leaderboard() {
               );
             })
           )}
+          </div>
         </div>
 
         <p style={{

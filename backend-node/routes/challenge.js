@@ -96,7 +96,8 @@ router.post('/:id/accept', auth, async (req, res) => {
         const io = req.app.get('io');
         if (io) io.to(`user_${challenge.sender_id}`).emit('challenge_accepted', {
             game_id: newGame._id,
-            color: finalSenderColor
+            color: finalSenderColor,
+            accepter_username: req.user.username
         });
 
         // Return the game info to the receiver so they can redirect too

@@ -127,6 +127,7 @@ export default function Dashboard() {
   const [isPlayModalOpen, setIsPlayModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [pendingChallenge, setPendingChallenge] = useState(null);
+  const [acceptedChallenge, setAcceptedChallenge] = useState(null);
   const socketRef = useRef(null);
 
   // ── Fetch user stats & game log ─────────────────────────────────────────
@@ -172,8 +173,16 @@ export default function Dashboard() {
       setPendingChallenge(data);
     });
 
-    socketRef.current.on('challenge_accepted', ({ game_id, color }) => {
-      navigate(`/play/${game_id}`);
+    socketRef.current.on('challenge_accepted', async ({ game_id, color, accepter_username }) => {
+      setAcceptedChallenge({ game_id, accepter_username });
+      
+      // Refresh the games list to show the new game in "Continue Game"
+      try {
+        const gamesRes = await apiClient.get('/games/my-games?limit=50');
+        setGameLog(gamesRes.data || []);
+      } catch (err) {
+        console.error('Failed to refresh games after challenge accepted', err);
+      }
     });
 
     return () => {
@@ -326,25 +335,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="flex-col-mobile" style={{
-          display: 'flex', gap: '12px', flexWrap: 'wrap',
-          marginBottom: '32px',
-        }}>
-          {loadingStats ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="glass" style={{ flex: 1, minWidth: '130px', height: '110px', opacity: 0.4 }} />
-            ))
-          ) : (
-            <>
-              <StatCard value={`${winRate}%`} label="Win Rate"      color="var(--emerald)" icon="🏆" delay={0} />
-              <StatCard value={stats.wins}    label="Wins"          color="var(--emerald)" icon="✓"  delay={0.05} />
-              <StatCard value={losses < 0 ? 0 : losses} label="Losses" color="var(--red)"    icon="✗"  delay={0.1} />
-              <StatCard value={stats.games_played} label="Games Played" color="var(--blue)"  icon="♟"  delay={0.15} />
-            </>
-          )}
-        </div>
-
+        {/* Stats Row Moved to Bottom */}
         {/* Play CTA + Leaderboard Banner */}
         <div className="grid-mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '36px' }}>
 
@@ -584,6 +575,26 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Stats Row */}
+        <div className="flex-col-mobile" style={{
+          display: 'flex', gap: '12px', flexWrap: 'wrap',
+          marginTop: '32px',
+        }}>
+          {loadingStats ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="glass" style={{ flex: 1, minWidth: '130px', height: '110px', opacity: 0.4 }} />
+            ))
+          ) : (
+            <>
+              <StatCard value={`${winRate}%`} label="Win Rate"      color="var(--emerald)" icon="🏆" delay={0} />
+              <StatCard value={stats.wins}    label="Wins"          color="var(--emerald)" icon="✓"  delay={0.05} />
+              <StatCard value={losses < 0 ? 0 : losses} label="Losses" color="var(--red)"    icon="✗"  delay={0.1} />
+              <StatCard value={stats.games_played} label="Games Played" color="var(--blue)"  icon="♟"  delay={0.15} />
+            </>
+          )}
+        </div>
+
       </main>
 
       {/* ── Play Modal ─────────────────────────────────────────────────────── */}
@@ -599,11 +610,55 @@ export default function Dashboard() {
 
       {/* ── Challenge Toast ────────────────────────────────────────────────── */}
       {pendingChallenge && (
-        <ChallengeToast
-          challenge={pendingChallenge}
+        <ChallengeToast 
+          challenge={pendingChallenge} 
           onAccept={handleAcceptChallenge}
           onDecline={handleDeclineChallenge}
         />
+      )}
+
+      {/* ── Accepted Challenge Toast ───────────────────────────────────────── */}
+      {acceptedChallenge && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
+          background: 'var(--bg-card)', border: '1px solid var(--emerald)',
+          borderRadius: '12px', padding: '16px 20px',
+          boxShadow: '0 8px 32px rgba(16,185,129,0.2)',
+          display: 'flex', flexDirection: 'column', gap: '12px',
+          animation: 'fadeInUp 0.3s ease both',
+          maxWidth: '320px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '24px' }}>✅</span>
+            <div>
+              <h3 style={{ margin: '0 0 4px', fontSize: '15px', color: 'var(--text-primary)' }}>
+                Challenge Accepted
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                {acceptedChallenge.accepter_username ? `${acceptedChallenge.accepter_username} accepted your challenge!` : 'Your challenge was accepted!'} The game has been added to your Continue Games.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              className="btn btn-primary"
+              style={{ flex: 1, padding: '8px' }}
+              onClick={() => {
+                navigate(`/play/${acceptedChallenge.game_id}`);
+                setAcceptedChallenge(null);
+              }}
+            >
+              Play Now
+            </button>
+            <button
+              className="btn btn-ghost"
+              style={{ flex: 1, padding: '8px' }}
+              onClick={() => setAcceptedChallenge(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

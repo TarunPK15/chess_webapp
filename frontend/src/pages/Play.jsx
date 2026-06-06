@@ -601,14 +601,6 @@ export default function Play() {
             flexBasis: `${whitePercentage}%`,
             position: 'relative',
           }}>
-            <span style={{
-              position: 'absolute', top: '4px',
-              left: '50%', transform: 'translateX(-50%)',
-              fontSize: '7px', fontWeight: 900,
-              color: '#1e293b', fontFamily: 'var(--font-mono)',
-            }}>
-              {evalScore > 0 ? `+${evalScore.toFixed(1)}` : evalScore.toFixed(1)}
-            </span>
           </div>
         </div>
 
