@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import { Chess } from 'chess.js';
 import apiClient from '../services/apiClient';
 import ChessBoard from '../components/ChessBoard';
 import useAuthStore from '../store/useAuthStore';
@@ -78,6 +79,9 @@ export default function Play() {
   // ── Game-end state ────────────────────────────────────────────────────────
   const [gameEnded,  setGameEnded]  = useState(false);
   const [endStatus,  setEndStatus]  = useState({ result: '', moveCount: 0 });
+  const [pendingDrawOffer, setPendingDrawOffer] = useState(false);
+  const [receivedDrawOffer, setReceivedDrawOffer] = useState(false);
+  const [checkSquare, setCheckSquare] = useState(null);
 
   const socketRef    = useRef(null);
   const sfStateRef   = useRef(sfState);  // always-current ref so socket callbacks see latest state
@@ -86,6 +90,36 @@ export default function Play() {
   useEffect(() => {
     sfStateRef.current = sfState;
   }, [sfState]);
+
+  // Compute check square whenever fen changes
+  useEffect(() => {
+    if (fen && fen !== 'start') {
+      try {
+        const chess = new Chess(fen);
+        if (chess.inCheck()) {
+          const turn = chess.turn(); // 'w' or 'b'
+          const board = chess.board();
+          let kSquare = null;
+          for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+              const piece = board[r][c];
+              if (piece && piece.type === 'k' && piece.color === turn) {
+                kSquare = piece.square;
+                break;
+              }
+            }
+          }
+          setCheckSquare(kSquare);
+        } else {
+          setCheckSquare(null);
+        }
+      } catch (err) {
+        setCheckSquare(null);
+      }
+    } else {
+      setCheckSquare(null);
+    }
+  }, [fen]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Handle incoming engine_move events (from WebSocket)
@@ -336,6 +370,8 @@ export default function Play() {
           let resultLabel;
           if (data.reason === 'stalemate') {
             resultLabel = 'Draw — Stalemate';
+          } else if (data.reason === 'mutual agreement') {
+            resultLabel = 'Draw — Agreed';
           } else if (data.reason === 'checkmate') {
             // winner_id is the user who delivered checkmate
             const iWon = data.winner_id && data.winner_id.toString() === currentUserId?.toString();
@@ -347,7 +383,24 @@ export default function Play() {
             resultLabel = data.result || 'Game Over';
           }
           setGameEnded(true);
+          setPendingDrawOffer(false);
+          setReceivedDrawOffer(false);
           setEndStatus({ result: resultLabel, moveCount });
+        });
+
+        // ── PvP: listen for draw events ─────────────────────────────────
+        socket.on('draw_offered', (data) => {
+          if (data.by.toString() !== currentUserId?.toString()) {
+            setReceivedDrawOffer(true);
+          }
+        });
+
+        socket.on('draw_declined', (data) => {
+          setPendingDrawOffer(false);
+          // Show alert if we were the ones who sent it
+          if (data.by.toString() !== currentUserId?.toString()) {
+             alert('Opponent declined your draw offer.');
+          }
         });
 
         // ── If human plays black, engine moves first ────────────────────
@@ -445,14 +498,36 @@ export default function Play() {
   };
 
   const handleDraw = async () => {
-    if (gameEnded) return;
+    if (gameEnded || pendingDrawOffer) return;
     if (!window.confirm("Offer a draw?")) return;
     try {
       await apiClient.post(`/games/${currentGameId}/draw`);
-      setGameEnded(true);
-      setEndStatus({ result: 'Draw — Agreed', moveCount: moveHistory.length });
+      if (gameType === 'bot') {
+        setGameEnded(true);
+        setEndStatus({ result: 'Draw — Agreed', moveCount: moveHistory.length });
+      } else {
+        setPendingDrawOffer(true);
+      }
     } catch (err) {
       console.error('Failed to offer draw', err);
+    }
+  };
+
+  const acceptDraw = async () => {
+    try {
+      await apiClient.post(`/games/${currentGameId}/draw/accept`);
+      setReceivedDrawOffer(false);
+    } catch (err) {
+      console.error('Failed to accept draw', err);
+    }
+  };
+
+  const declineDraw = async () => {
+    try {
+      await apiClient.post(`/games/${currentGameId}/draw/decline`);
+      setReceivedDrawOffer(false);
+    } catch (err) {
+      console.error('Failed to decline draw', err);
     }
   };
 
@@ -533,15 +608,17 @@ export default function Play() {
               {gameType === 'pvp' && (
                 <button
                   onClick={handleDraw}
+                  disabled={pendingDrawOffer}
                   style={{
                     padding: '7px 14px', borderRadius: '8px',
                     border: '1px solid var(--border)',
                     background: 'var(--bg-input)',
                     color: 'var(--text-secondary)', fontSize: '12px',
-                    fontWeight: 600, cursor: 'pointer',
+                    fontWeight: 600, cursor: pendingDrawOffer ? 'not-allowed' : 'pointer',
+                    opacity: pendingDrawOffer ? 0.6 : 1
                   }}
                 >
-                  Offer Draw
+                  {pendingDrawOffer ? 'Draw Sent...' : 'Offer Draw'}
                 </button>
               )}
               <button
@@ -612,6 +689,9 @@ export default function Play() {
           boardOrientation={playerColor === 'b' ? 'black' : 'white'}
           onMove={handlePlayerMove}
           externalLastMove={externalLastMove}
+          externalSquareStyles={{
+            ...(checkSquare ? { [checkSquare]: { background: 'radial-gradient(circle, rgba(255,0,0,.4) 25%, transparent 26%)', borderRadius: '50%' } } : {})
+          }}
           onFenUpdate={(newFen) => {
             // ChessBoard tracks its own chess.js state; we track sfState separately
             // No need to sync fen up from ChessBoard — sfState drives source of truth
@@ -658,7 +738,48 @@ export default function Play() {
         </div>
       </div>
 
-      {/* ── GAME END MODAL ─────────────────────────────────────────────── */}
+      {/* ── DRAW OFFER TOAST ──────────────────────────────────────────────── */}
+      {receivedDrawOffer && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
+          background: 'var(--bg-card)', border: '1px solid var(--amber)',
+          borderRadius: '12px', padding: '16px 20px',
+          boxShadow: '0 8px 32px rgba(217,119,6,0.2)',
+          display: 'flex', flexDirection: 'column', gap: '12px',
+          animation: 'fadeInUp 0.3s ease both',
+          maxWidth: '320px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '24px' }}>🤝</span>
+            <div>
+              <h3 style={{ margin: '0 0 4px', fontSize: '15px', color: 'var(--text-primary)' }}>
+                Draw Offered
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                Your opponent has offered a draw. Do you accept?
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              className="btn btn-primary"
+              style={{ flex: 1, padding: '8px', background: 'var(--amber)', borderColor: 'var(--amber)' }}
+              onClick={acceptDraw}
+            >
+              Accept
+            </button>
+            <button
+              className="btn btn-ghost"
+              style={{ flex: 1, padding: '8px' }}
+              onClick={declineDraw}
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── GAME END OVERLAY ──────────────────────────────────────────────── */}
       {gameEnded && (
         <div style={{
           position: 'fixed', inset: 0,

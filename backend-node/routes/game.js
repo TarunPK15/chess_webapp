@@ -309,20 +309,35 @@ router.post('/:id/draw', auth, async (req, res) => {
         if (game.result !== 'abandoned') return res.status(400).json({ error: 'Game is already over' });
 
         const isPvp = game.game_type === 'pvp';
+        const io = req.app.get('io');
         
         if (isPvp) {
-            // PVP Draw logic: normally you'd emit a draw offer to the other player.
-            // For now, let's just make it auto-accept or return an error if complex PVP draws aren't fully spec'd.
-            // As per plan, we are auto-accepting for bots. For PVP, we can also auto-accept for simplicity.
-            game.result = 'draw';
-            await updateUserStats(game.white_player_id, 'draw', game.moves.length);
-            if (game.black_player_id) await updateUserStats(game.black_player_id, 'draw', game.moves.length);
+            // Emit draw offer to the other player in the game room
+            if (io) {
+                // Determine opponent's user ID to send specifically or emit to room
+                // Here we just emit to the game room, and the frontend will filter if it's the sender
+                io.to(game.id).emit('draw_offered', { by: req.user.userId });
+            }
+            return res.json({ success: true, message: 'Draw offer sent' });
         } else {
-            // Bot game: Engine auto-accepts draw
-            game.result = 'draw';
-            await updateUserStats(game.user_id, game.result, game.moves.length);
+            return res.status(400).json({ error: 'Draw offers are not permitted against the engine' });
         }
+    } catch (err) {
+        res.status(500).json({ error: 'Draw offer failed' });
+    }
+});
 
+// @route   POST /api/games/:id/draw/accept
+// @desc    Accept a draw offer
+router.post('/:id/draw/accept', auth, async (req, res) => {
+    try {
+        const game = await Game.findById(req.params.id);
+        if (!game) return res.status(404).json({ error: 'Game not found' });
+        if (game.result !== 'abandoned') return res.status(400).json({ error: 'Game is already over' });
+
+        game.result = 'draw';
+        await updateUserStats(game.white_player_id, 'draw', game.moves.length);
+        if (game.black_player_id) await updateUserStats(game.black_player_id, 'draw', game.moves.length);
         await game.save();
 
         const io = req.app.get('io');
@@ -330,7 +345,19 @@ router.post('/:id/draw', auth, async (req, res) => {
 
         res.json({ success: true, game_status: game.result });
     } catch (err) {
-        res.status(500).json({ error: 'Draw offer failed' });
+        res.status(500).json({ error: 'Accept draw failed' });
+    }
+});
+
+// @route   POST /api/games/:id/draw/decline
+// @desc    Decline a draw offer
+router.post('/:id/draw/decline', auth, async (req, res) => {
+    try {
+        const io = req.app.get('io');
+        if (io) io.to(req.params.id).emit('draw_declined', { by: req.user.userId });
+        res.json({ success: true, message: 'Draw declined' });
+    } catch (err) {
+        res.status(500).json({ error: 'Decline draw failed' });
     }
 });
 
