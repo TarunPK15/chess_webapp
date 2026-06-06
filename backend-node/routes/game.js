@@ -126,6 +126,10 @@ router.post('/:id/move', auth, async (req, res) => {
 
             await game.save();
 
+            // A move nullifies any pending draw offers
+            game.draw_offered_by = null;
+            await game.save();
+
             // Emit the move to both players in the room
             if (io) io.to(gameId).emit('pvp_move', {
                 piece: piece,
@@ -313,6 +317,11 @@ router.post('/:id/draw', auth, async (req, res) => {
         
         if (isPvp) {
             const opponentId = game.white_player_id.toString() === req.user.userId.toString() ? game.black_player_id : game.white_player_id;
+            
+            // Persist the draw offer
+            game.draw_offered_by = req.user.userId;
+            await game.save();
+
             // Emit draw offer to the other player in the game room and their personal room
             if (io) {
                 io.to(game.id).emit('draw_offered', { by: req.user.userId, gameId: game.id });
@@ -357,6 +366,11 @@ router.post('/:id/draw/decline', auth, async (req, res) => {
         if (!game) return res.status(404).json({ error: 'Game not found' });
         
         const opponentId = game.white_player_id.toString() === req.user.userId.toString() ? game.black_player_id : game.white_player_id;
+        
+        // Clear the draw offer
+        game.draw_offered_by = null;
+        await game.save();
+
         const io = req.app.get('io');
         
         if (io) {

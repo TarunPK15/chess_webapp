@@ -130,6 +130,7 @@ export default function Dashboard() {
   const [pendingChallengesList, setPendingChallengesList] = useState([]);
   const [acceptedChallenge, setAcceptedChallenge] = useState(null);
   const [pendingDrawOffer, setPendingDrawOffer] = useState(null);
+  const [activeTab, setActiveTab] = useState('continue'); // 'continue', 'previous', or 'pending'
   const socketRef = useRef(null);
 
   // ── Fetch user stats & game log ─────────────────────────────────────────
@@ -184,6 +185,7 @@ export default function Dashboard() {
       try {
         const gamesRes = await apiClient.get('/games/my-games?limit=50');
         setGameLog(gamesRes.data || []);
+        setActiveTab('continue');
       } catch (err) {
         console.error('Failed to refresh games after challenge accepted', err);
       }
@@ -230,8 +232,6 @@ export default function Dashboard() {
 
   const losses = stats.games_played - stats.wins;
   const winRate = stats.games_played > 0 ? Math.round((stats.wins / stats.games_played) * 100) : 0;
-
-  const [activeTab, setActiveTab] = useState('continue'); // 'continue', 'previous', or 'pending'
   
   const continueGames = gameLog.filter(g => g.result === 'abandoned');
   const previousGames = gameLog.filter(g => g.result !== 'abandoned');

@@ -309,6 +309,13 @@ export default function Play() {
             setGameEnded(true);
             setEndStatus({ result: g.result === 'draw' ? 'Draw' : g.result === 'win' ? 'You Won!' : 'Loss', moveCount: g.moves?.length || 0 });
           }
+          if (g.draw_offered_by) {
+            if (g.draw_offered_by.toString() === currentUserId?.toString()) {
+              setPendingDrawOffer(true);
+            } else {
+              setReceivedDrawOffer(true);
+            }
+          }
         }
 
         setPlayerColor(color);

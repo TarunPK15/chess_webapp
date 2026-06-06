@@ -8,6 +8,8 @@ const GameSchema = new mongoose.Schema({
     black_player_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Optional for bot games
     // -------------------------------
     
+    draw_offered_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    
     moves: { type: [String], default: [] },
     result: { type: String, enum: ['win', 'loss', 'draw', 'abandoned'], required: true },
     
