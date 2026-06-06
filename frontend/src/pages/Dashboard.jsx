@@ -127,6 +127,7 @@ export default function Dashboard() {
   const [isPlayModalOpen, setIsPlayModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [pendingChallenge, setPendingChallenge] = useState(null);
+  const [pendingChallengesList, setPendingChallengesList] = useState([]);
   const [acceptedChallenge, setAcceptedChallenge] = useState(null);
   const socketRef = useRef(null);
 
@@ -135,9 +136,10 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         setLoadingStats(true);
-        const [lbRes, gamesRes] = await Promise.all([
+        const [lbRes, gamesRes, pendingRes] = await Promise.all([
           apiClient.get('/leaderboard'),
           apiClient.get('/games/my-games?limit=50'),
+          apiClient.get('/challenges/pending'),
         ]);
 
         // Find current user in leaderboard for live stats
@@ -151,6 +153,7 @@ export default function Dashboard() {
           });
         }
         setGameLog(gamesRes.data || []);
+        setPendingChallengesList(pendingRes.data || []);
       } catch (err) {
         console.error('Dashboard fetch error:', err);
       } finally {
@@ -194,6 +197,7 @@ export default function Dashboard() {
     try {
       const res = await apiClient.post(`/challenges/${challengeId}/accept`);
       setPendingChallenge(null);
+      setPendingChallengesList(prev => prev.filter(c => c._id !== challengeId));
       navigate(`/play/${res.data.game_id}`);
     } catch (err) {
       console.error('Failed to accept challenge:', err);
@@ -201,14 +205,20 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeclineChallenge = () => {
+  const handleDeclineChallenge = async (challengeId) => {
     setPendingChallenge(null);
+    setPendingChallengesList(prev => prev.filter(c => c._id !== challengeId));
+    try {
+      await apiClient.post(`/challenges/${challengeId}/decline`);
+    } catch (err) {
+      console.error('Failed to decline challenge:', err);
+    }
   };
 
   const losses = stats.games_played - stats.wins;
   const winRate = stats.games_played > 0 ? Math.round((stats.wins / stats.games_played) * 100) : 0;
 
-  const [activeTab, setActiveTab] = useState('continue'); // 'continue' or 'previous'
+  const [activeTab, setActiveTab] = useState('continue'); // 'continue', 'previous', or 'pending'
   
   const continueGames = gameLog.filter(g => g.result === 'abandoned');
   const previousGames = gameLog.filter(g => g.result !== 'abandoned');
@@ -442,6 +452,20 @@ export default function Dashboard() {
               >
                 Previous Games
               </button>
+              <button
+                onClick={() => setActiveTab('pending')}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontFamily: 'var(--font-heading)', fontSize: '18px', fontWeight: activeTab === 'pending' ? 800 : 600,
+                  color: activeTab === 'pending' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  borderBottom: activeTab === 'pending' ? '2px solid var(--emerald)' : 'none',
+                  paddingBottom: '8px', marginBottom: '-9px',
+                  transition: 'color 0.2s',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                Pending Challenges {pendingChallengesList.length > 0 && <span style={{ background: 'var(--red)', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px' }}>{pendingChallengesList.length}</span>}
+              </button>
             </div>
             
             {gameLog.length > 0 && (
@@ -460,6 +484,47 @@ export default function Dashboard() {
                 <div key={i} className="glass" style={{ height: '56px', opacity: 0.3 }} />
               ))}
             </div>
+          ) : activeTab === 'pending' ? (
+            pendingChallengesList.length === 0 ? (
+              <div className="glass" style={{
+                padding: '48px', textAlign: 'center',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px',
+              }}>
+                <span style={{ fontSize: '40px' }}>⚔</span>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 500 }}>
+                  No pending challenges
+                </p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+                  When someone challenges you to a game, it will appear here.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {pendingChallengesList.map((challenge, idx) => (
+                  <div
+                    key={challenge._id}
+                    className="glass"
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '12px 16px', animation: `fadeInUp 0.3s ease ${idx * 0.04}s both`,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Challenge from {challenge.sender_id?.username || 'Unknown'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Color: {challenge.sender_color === 'random' ? 'Random' : challenge.sender_color === 'w' ? 'They play White' : 'They play Black'}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className="btn btn-primary" onClick={() => handleAcceptChallenge(challenge._id)} style={{ padding: '6px 12px', fontSize: '12px' }}>Accept</button>
+                      <button className="btn btn-ghost" onClick={() => handleDeclineChallenge(challenge._id)} style={{ padding: '6px 12px', fontSize: '12px' }}>Decline</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           ) : displayedGames.length === 0 ? (
             <div className="glass" style={{
               padding: '48px', textAlign: 'center',

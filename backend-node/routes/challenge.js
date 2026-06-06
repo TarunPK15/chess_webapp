@@ -111,4 +111,25 @@ router.post('/:id/accept', auth, async (req, res) => {
     }
 });
 
+// @route   POST /api/challenges/:id/decline
+// @desc    Decline a challenge
+router.post('/:id/decline', auth, async (req, res) => {
+    try {
+        const challenge = await Challenge.findById(req.params.id);
+        if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
+        
+        // Ensure only the receiver can decline it
+        if (challenge.receiver_id.toString() !== req.user.userId) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        challenge.status = 'declined';
+        await challenge.save();
+
+        res.json({ message: 'Challenge declined' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to decline challenge' });
+    }
+});
+
 module.exports = router;

@@ -225,7 +225,7 @@ export default function Analyze() {
       {/* ── MAIN CONTENT ──────────────────────────────────────────────── */}
       <div className="game-zone" style={{
         display: 'flex', gap: '14px', alignItems: 'stretch',
-        justifyContent: 'center',
+        justifyContent: 'center', height: '600px',
         width: '900px', maxWidth: '100%',
       }}>
         {/* EVAL BAR */}
