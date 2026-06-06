@@ -127,8 +127,8 @@ export default function Dashboard() {
   const [isPlayModalOpen, setIsPlayModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [pendingChallenge, setPendingChallenge] = useState(null);
-  const [pendingChallengesList, setPendingChallengesList] = useState([]);
   const [acceptedChallenge, setAcceptedChallenge] = useState(null);
+  const [pendingDrawOffer, setPendingDrawOffer] = useState(null);
   const socketRef = useRef(null);
 
   // ── Fetch user stats & game log ─────────────────────────────────────────
@@ -185,6 +185,18 @@ export default function Dashboard() {
         setGameLog(gamesRes.data || []);
       } catch (err) {
         console.error('Failed to refresh games after challenge accepted', err);
+      }
+    });
+
+    socketRef.current.on('draw_offered', (data) => {
+      if (data.by.toString() !== user.userId.toString()) {
+        setPendingDrawOffer(data);
+      }
+    });
+
+    socketRef.current.on('draw_declined', (data) => {
+      if (data.by.toString() !== user.userId.toString()) {
+        alert('Your opponent declined the draw offer.');
       }
     });
 
@@ -725,6 +737,50 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      {/* ── DRAW OFFER TOAST (Dashboard) ─────────────────────────────────── */}
+      {pendingDrawOffer && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '24px', zIndex: 1000,
+          background: 'var(--bg-card)', border: '1px solid var(--amber)',
+          borderRadius: '12px', padding: '16px 20px',
+          boxShadow: '0 8px 32px rgba(217,119,6,0.2)',
+          display: 'flex', flexDirection: 'column', gap: '12px',
+          animation: 'fadeInUp 0.3s ease both',
+          maxWidth: '320px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '24px' }}>🤝</span>
+            <div>
+              <h3 style={{ margin: '0 0 4px', fontSize: '15px', color: 'var(--text-primary)' }}>
+                Draw Offered
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                Your opponent has offered a draw in an active game.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              className="btn btn-primary"
+              style={{ flex: 1, padding: '8px', background: 'var(--amber)', borderColor: 'var(--amber)' }}
+              onClick={() => {
+                navigate(`/play/${pendingDrawOffer.gameId}`);
+                setPendingDrawOffer(null);
+              }}
+            >
+              Go to Game
+            </button>
+            <button
+              className="btn btn-ghost"
+              style={{ flex: 1, padding: '8px' }}
+              onClick={() => setPendingDrawOffer(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

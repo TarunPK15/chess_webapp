@@ -312,11 +312,11 @@ router.post('/:id/draw', auth, async (req, res) => {
         const io = req.app.get('io');
         
         if (isPvp) {
-            // Emit draw offer to the other player in the game room
+            const opponentId = game.white_player_id.toString() === req.user.userId.toString() ? game.black_player_id : game.white_player_id;
+            // Emit draw offer to the other player in the game room and their personal room
             if (io) {
-                // Determine opponent's user ID to send specifically or emit to room
-                // Here we just emit to the game room, and the frontend will filter if it's the sender
-                io.to(game.id).emit('draw_offered', { by: req.user.userId });
+                io.to(game.id).emit('draw_offered', { by: req.user.userId, gameId: game.id });
+                io.to(`user_${opponentId}`).emit('draw_offered', { by: req.user.userId, gameId: game.id });
             }
             return res.json({ success: true, message: 'Draw offer sent' });
         } else {
@@ -353,8 +353,16 @@ router.post('/:id/draw/accept', auth, async (req, res) => {
 // @desc    Decline a draw offer
 router.post('/:id/draw/decline', auth, async (req, res) => {
     try {
+        const game = await Game.findById(req.params.id);
+        if (!game) return res.status(404).json({ error: 'Game not found' });
+        
+        const opponentId = game.white_player_id.toString() === req.user.userId.toString() ? game.black_player_id : game.white_player_id;
         const io = req.app.get('io');
-        if (io) io.to(req.params.id).emit('draw_declined', { by: req.user.userId });
+        
+        if (io) {
+            io.to(game.id).emit('draw_declined', { by: req.user.userId, gameId: game.id });
+            io.to(`user_${opponentId}`).emit('draw_declined', { by: req.user.userId, gameId: game.id });
+        }
         res.json({ success: true, message: 'Draw declined' });
     } catch (err) {
         res.status(500).json({ error: 'Decline draw failed' });
