@@ -176,37 +176,58 @@ bool is_square_attacked(int* board, int square, int enemy_turn) {
         if (target >= 0 && target < 64 && abs((square%8) - (target%8)) <= 1)
             if (board[target] == PAWN * enemy_turn) return true;
     }
-    int king_offsets[8] = {-9, -8, -7, -1, 1, 7, 8, 9};
-    for (int off : king_offsets) {
+    int dir_off[8] = {-9, -8, -7, -1, 1, 7, 8, 9};
+    for (int off : dir_off) {
         int target = square + off;
-        if (target >= 0 && target < 64 && abs((square%8) - (target%8)) <= 1)
-            if (board[target] == KING * enemy_turn) return true;
-    }
-    int bishop_offsets[4] = {-9, -7, 7, 9};
-    for (int off : bishop_offsets) {
-        int target = square + off;
+        int step = 1;
         while (target >= 0 && target < 64 && abs((target%8) - ((target-off)%8)) <= 1) {
             int p = board[target];
             if (p != 0) {
-                if (p == BISHOP * enemy_turn || p == QUEEN * enemy_turn) return true;
+                if (p * enemy_turn > 0) {
+                    int type = abs(p);
+                    if (type == QUEEN) return true;
+                    if (type == ROOK && (off == -8 || off == 8 || off == -1 || off == 1)) return true;
+                    if (type == BISHOP && (off == -9 || off == -7 || off == 7 || off == 9)) return true;
+                    if (type == KING && step == 1) return true;
+                }
                 break;
             }
             target += off;
-        }
-    }
-    int rook_offsets[4] = {-8, -1, 1, 8};
-    for (int off : rook_offsets) {
-        int target = square + off;
-        while (target >= 0 && target < 64 && abs((target%8) - ((target-off)%8)) <= 1) {
-            int p = board[target];
-            if (p != 0) {
-                if (p == ROOK * enemy_turn || p == QUEEN * enemy_turn) return true;
-                break;
-            }
-            target += off;
+            step++;
         }
     }
     return false;
+}
+
+int filter_illegal_moves(int* board, int turn, Move* moves, int num_moves) {
+    int valid_count = 0;
+    for (int i = 0; i < num_moves; i++) {
+        int saved = board[moves[i].target_idx];
+        
+        board[moves[i].target_idx] = board[moves[i].start_idx];
+        board[moves[i].start_idx] = 0;
+        
+        int king_idx = -1;
+        for (int k = 0; k < 64; k++) {
+            if (board[k] == turn * 6) { // 6 is KING
+                king_idx = k;
+                break;
+            }
+        }
+        
+        bool illegal = false;
+        if (king_idx != -1) {
+            illegal = is_square_attacked(board, king_idx, -turn);
+        }
+        
+        board[moves[i].start_idx] = board[moves[i].target_idx];
+        board[moves[i].target_idx] = saved;
+        
+        if (!illegal) {
+            moves[valid_count++] = moves[i];
+        }
+    }
+    return valid_count;
 }
 
 float evaluate_board(int* board, int move_count, int castling_rights) {
@@ -324,6 +345,7 @@ float minimax(int* board, int depth, float alpha, float beta, int turn, int move
 
     Move moves[256];
     int num_moves = generate_moves(board, turn, moves, castling_rights);
+    num_moves = filter_illegal_moves(board, turn, moves, num_moves);
     
     if (num_moves == 0) {
         int king_idx = -1;
@@ -491,6 +513,7 @@ float opponent_repetition_penalty(int* board, int opp_turn, uint64_t* past_hashe
     if (num_past == 0) return 0.0f;
     Move opp_moves[256];
     int num_opp = generate_moves(board, opp_turn, opp_moves, 0);
+    num_opp = filter_illegal_moves(board, opp_turn, opp_moves, num_opp);
     float penalty = 0.0f;
     for (int k = 0; k < num_opp; k++) {
         int opp_saved = board[opp_moves[k].target_idx];
@@ -537,6 +560,15 @@ extern "C" {
         for (int d = 1; d <= target_depth; d++) {
             Move moves[256];
             int num_moves = generate_moves(board, turn, moves, castling_rights);
+            num_moves = filter_illegal_moves(board, turn, moves, num_moves);
+            
+            if (num_moves == 0) {
+                // If there are no legal moves at root, engine has already lost or drawn.
+                out_move[0] = -1;
+                out_move[1] = -1;
+                return;
+            }
+            
             sort(moves, moves + num_moves, move_sorter);
 
             int tt_idx = root_hash % TT_SIZE;
