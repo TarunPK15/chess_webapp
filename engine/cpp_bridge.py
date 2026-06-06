@@ -7,7 +7,6 @@ PIECE_TYPES = {'P': 1, 'N': 2, 'B': 3, 'R': 4, 'Q': 5, 'K': 6}
 PIECE_VALUES = {'P': 1.0, 'N': 3.0, 'B': 3.0, 'R': 5.0, 'Q': 9.0, 'K': 1000.0}
 cpp_engine = None
 
-global game_recent_starts, game_past_boards
 if 'game_recent_starts' not in globals():
     game_recent_starts = []
     game_past_boards = []
@@ -87,17 +86,37 @@ def get_cpp_greedy_move(gs, base_depth):
         out_move = (ctypes.c_int * 2)()
         turn_int = 1 if gs.turn == 'w' else -1
 
+        wk_moved = any(m.startswith('WK1_') for m in gs.move_history)
+        wr1_moved = any(m.startswith('WR1_') for m in gs.move_history)
+        wr2_moved = any(m.startswith('WR2_') for m in gs.move_history)
+        bk_moved = any(m.startswith('BK1_') for m in gs.move_history)
+        br1_moved = any(m.startswith('BR1_') for m in gs.move_history)
+        br2_moved = any(m.startswith('BR2_') for m in gs.move_history)
+        
+        wr1_captured = 'WR1' not in gs.white
+        wr2_captured = 'WR2' not in gs.white
+        br1_captured = 'BR1' not in gs.black
+        br2_captured = 'BR2' not in gs.black
+
+        castling_rights = 0
+        if not wk_moved:
+            if not wr2_moved and not wr2_captured: castling_rights |= 1
+            if not wr1_moved and not wr1_captured: castling_rights |= 2
+        if not bk_moved:
+            if not br2_moved and not br2_captured: castling_rights |= 4
+            if not br1_moved and not br1_captured: castling_rights |= 8
+
         cpp_engine.get_best_move.argtypes = [
             ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.c_int, ctypes.c_int,
             ctypes.POINTER(ctypes.c_int), ctypes.c_int,
-            ctypes.POINTER(ctypes.c_int), ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.c_int,
             ctypes.POINTER(ctypes.c_int)
         ]
 
         cpp_engine.get_best_move(
             board_array, ctypes.c_int(search_depth), ctypes.c_int(move_count), ctypes.c_int(turn_int),
             recent_starts_array, ctypes.c_int(num_recent),
-            past_boards_array, ctypes.c_int(num_past),
+            past_boards_array, ctypes.c_int(num_past), ctypes.c_int(castling_rights),
             out_move
         )
 

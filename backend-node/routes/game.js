@@ -160,7 +160,39 @@ router.post('/:id/move', auth, async (req, res) => {
 
 
         } else {
-            // BOT MODE: Ask Python for the counter-attack
+            // BOT MODE: Check if human's move already ended the game
+            const humanCheckmate = validateRes.data.is_checkmate;
+            const humanStalemate = validateRes.data.is_stalemate;
+
+            if (humanCheckmate) {
+                game.result = 'win';
+                game.current_state = validateRes.data.updated_state;
+                await updateUserStats(game.user_id, 'win', game.moves.length);
+                await game.save();
+                if (io) io.to(gameId).emit('engine_move', {
+                    piece: null, target: null,
+                    updated_state: validateRes.data.updated_state,
+                    is_checkmate: true, is_stalemate: false,
+                    eval_score: 0,
+                });
+                return res.json({ valid: true, human_move: humanMoveStr, game_status: 'win', is_checkmate: true });
+            }
+
+            if (humanStalemate) {
+                game.result = 'draw';
+                game.current_state = validateRes.data.updated_state;
+                await updateUserStats(game.user_id, 'draw', game.moves.length);
+                await game.save();
+                if (io) io.to(gameId).emit('engine_move', {
+                    piece: null, target: null,
+                    updated_state: validateRes.data.updated_state,
+                    is_checkmate: false, is_stalemate: true,
+                    eval_score: 0,
+                });
+                return res.json({ valid: true, human_move: humanMoveStr, game_status: 'draw', is_stalemate: true });
+            }
+
+            // Ask Python for the counter-attack
             const pythonResponse = await axios.post(`${PYTHON_API}/move`, {
                 game_state: validateRes.data.updated_state,
                 engine_mode: game.engine_mode,
@@ -174,8 +206,10 @@ router.post('/:id/move', auth, async (req, res) => {
                 game.moves.push(aiMoveStr);
             }
 
-            // Check Game End Conditions
+            // Check Game End Conditions after engine move
             if (aiData.is_checkmate) {
+                // Engine had no legal moves and was in check — human wins (shouldn't reach here now)
+                // Engine's move resulted in human being checkmated
                 game.result = (aiData.piece === null) ? 'win' : 'loss';
                 await updateUserStats(game.user_id, game.result, game.moves.length);
             } else if (aiData.is_stalemate) {

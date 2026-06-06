@@ -67,7 +67,9 @@ uint64_t compute_board_hash(int* board) {
     return h;
 }
 
-int generate_moves(int* board, int turn, Move* moves) {
+bool is_square_attacked(int* board, int square, int enemy_turn);
+
+int generate_moves(int* board, int turn, Move* moves, int castling_rights) {
     int count = 0;
     int knight_offsets[8] = {-17, -15, -10, -6, 6, 10, 15, 17};
     int king_offsets[8] = {-9, -8, -7, -1, 1, 7, 8, 9};
@@ -130,6 +132,31 @@ int generate_moves(int* board, int turn, Move* moves) {
                 if (target >= 0 && target < 64 && abs((i%8) - (target%8)) <= 1 && board[target] * turn <= 0)
                     moves[count++] = {i, target, type, abs(board[target])};
             }
+            
+            // Castling
+            if (turn == 1) { // White
+                if (i == 60) {
+                    if ((castling_rights & 1) && board[61] == 0 && board[62] == 0) { // O-O
+                        if (!is_square_attacked(board, 60, -1) && !is_square_attacked(board, 61, -1) && !is_square_attacked(board, 62, -1))
+                            moves[count++] = {60, 62, type, 0};
+                    }
+                    if ((castling_rights & 2) && board[59] == 0 && board[58] == 0 && board[57] == 0) { // O-O-O
+                        if (!is_square_attacked(board, 60, -1) && !is_square_attacked(board, 59, -1) && !is_square_attacked(board, 58, -1))
+                            moves[count++] = {60, 58, type, 0};
+                    }
+                }
+            } else { // Black
+                if (i == 4) {
+                    if ((castling_rights & 4) && board[5] == 0 && board[6] == 0) { // O-O
+                        if (!is_square_attacked(board, 4, 1) && !is_square_attacked(board, 5, 1) && !is_square_attacked(board, 6, 1))
+                            moves[count++] = {4, 6, type, 0};
+                    }
+                    if ((castling_rights & 8) && board[3] == 0 && board[2] == 0 && board[1] == 0) { // O-O-O
+                        if (!is_square_attacked(board, 4, 1) && !is_square_attacked(board, 3, 1) && !is_square_attacked(board, 2, 1))
+                            moves[count++] = {4, 2, type, 0};
+                    }
+                }
+            }
         }
     }
     return count;
@@ -182,7 +209,7 @@ bool is_square_attacked(int* board, int square, int enemy_turn) {
     return false;
 }
 
-float evaluate_board(int* board, int move_count) {
+float evaluate_board(int* board, int move_count, int castling_rights) {
     float score = 0.0;
     int w_king_idx = -1, b_king_idx = -1;
 
@@ -201,14 +228,37 @@ float evaluate_board(int* board, int move_count) {
         int col = i % 8;
         int back_rank = (color == 1) ? 7 : 0;
 
+        // Advancement bonus: incentivize pieces being further up the board
+        // White wants low row index (closer to row 0 = rank 8), black wants high row index
+        if (type != KING) {
+            float adv_bonus;
+            if (type == PAWN) {
+                // Pawns get a stronger push to advance
+                adv_bonus = (color == 1) ? (7 - row) * 0.025f : row * 0.025f;
+            } else {
+                // Other pieces get a very slight nudge
+                adv_bonus = (color == 1) ? (7 - row) * 0.008f : row * 0.008f;
+            }
+            piece_score += adv_bonus;
+        }
+
         if (move_count < 15) {
             if (type == PAWN && (col == 3 || col == 4) && (row == 3 || row == 4)) piece_score += 0.1;
             if ((type == KNIGHT || type == BISHOP) && row != back_rank) piece_score += 0.09;
             if (type == KING) {
-                if ((col == 2 || col == 6) && row == back_rank) piece_score += 0.5;
+                if ((col == 2 || col == 6) && row == back_rank) piece_score += 0.6; // Castled position
                 else if (col == 4 && row == back_rank) piece_score -= 0.1;
             }
             if ((type == KING || type == ROOK) && row != back_rank) piece_score -= 0.01;
+        }
+
+        // Bonus for retaining castling rights (0.3). 
+        // If the engine castles, it loses the 0.3 right bonus but gains the 0.6 castled position bonus (net +0.3).
+        // If it moves king without castling, it loses the 0.3 right bonus and gets 0.0 position bonus (net -0.3 relative to before).
+        if (color == 1 && type == KING) {
+            if (castling_rights & 3) piece_score += 0.3; 
+        } else if (color == -1 && type == KING) {
+            if (castling_rights & 12) piece_score += 0.3;
         }
         
         if (move_count > 35 && (type == PAWN || type == KING)) piece_score += 0.001; 
@@ -246,7 +296,7 @@ bool move_sorter(const Move& a, const Move& b) {
     return score_a > score_b;
 }
 
-float minimax(int* board, int depth, float alpha, float beta, int turn, int move_count, uint64_t hash, uint64_t* search_path, int ply, uint64_t* past_hashes, int num_past) {
+float minimax(int* board, int depth, float alpha, float beta, int turn, int move_count, uint64_t hash, uint64_t* search_path, int ply, uint64_t* past_hashes, int num_past, int castling_rights) {
     uint64_t b_hash = compute_board_hash(board);
     for(int i = 0; i < num_past; i++) {
         if(past_hashes[i] == b_hash) return 0.0;
@@ -270,10 +320,10 @@ float minimax(int* board, int depth, float alpha, float beta, int turn, int move
         }
     }
 
-    if (depth == 0) return evaluate_board(board, move_count);
+    if (depth == 0) return evaluate_board(board, move_count, castling_rights);
 
     Move moves[256];
-    int num_moves = generate_moves(board, turn, moves);
+    int num_moves = generate_moves(board, turn, moves, castling_rights);
     
     if (num_moves == 0) {
         int king_idx = -1;
@@ -311,14 +361,40 @@ float minimax(int* board, int depth, float alpha, float beta, int turn, int move
             next_hash ^= zobrist_table[moves[i].target_idx][p_idx]; 
             next_hash ^= zobrist_turn; 
             
+            int next_castling_rights = castling_rights;
+            if (moves[i].start_idx == 60 || moves[i].target_idx == 60) next_castling_rights &= ~3;
+            if (moves[i].start_idx == 4 || moves[i].target_idx == 4) next_castling_rights &= ~12;
+            if (moves[i].start_idx == 63 || moves[i].target_idx == 63) next_castling_rights &= ~1;
+            if (moves[i].start_idx == 56 || moves[i].target_idx == 56) next_castling_rights &= ~2;
+            if (moves[i].start_idx == 7 || moves[i].target_idx == 7) next_castling_rights &= ~4;
+            if (moves[i].start_idx == 0 || moves[i].target_idx == 0) next_castling_rights &= ~8;
+
+            int rook_start = -1, rook_target = -1;
+            if (abs(board[moves[i].start_idx]) == KING && abs(moves[i].target_idx - moves[i].start_idx) == 2) {
+                if (moves[i].target_idx == 62) { rook_start = 63; rook_target = 61; }
+                else if (moves[i].target_idx == 58) { rook_start = 56; rook_target = 59; }
+                else if (moves[i].target_idx == 6) { rook_start = 7; rook_target = 5; }
+                else if (moves[i].target_idx == 2) { rook_start = 0; rook_target = 3; }
+            }
+
+            if (rook_start != -1) {
+                board[rook_target] = board[rook_start];
+                board[rook_start] = 0;
+            }
+            
             board[moves[i].target_idx] = board[moves[i].start_idx];
             board[moves[i].start_idx] = 0;
             
-            float eval = minimax(board, depth - 1, alpha, beta, -1, move_count + 1, next_hash, search_path, ply + 1, past_hashes, num_past);
+            float eval = minimax(board, depth - 1, alpha, beta, -1, move_count + 1, next_hash, search_path, ply + 1, past_hashes, num_past, next_castling_rights);
             if (saved != 0) eval += 0.09;
             
             board[moves[i].start_idx] = board[moves[i].target_idx];
             board[moves[i].target_idx] = saved;
+            
+            if (rook_start != -1) {
+                board[rook_start] = board[rook_target];
+                board[rook_target] = 0;
+            }
             
             if (eval > max_eval) {
                 max_eval = eval;
@@ -350,14 +426,40 @@ float minimax(int* board, int depth, float alpha, float beta, int turn, int move
             next_hash ^= zobrist_table[moves[i].target_idx][p_idx];
             next_hash ^= zobrist_turn;
             
+            int next_castling_rights = castling_rights;
+            if (moves[i].start_idx == 60 || moves[i].target_idx == 60) next_castling_rights &= ~3;
+            if (moves[i].start_idx == 4 || moves[i].target_idx == 4) next_castling_rights &= ~12;
+            if (moves[i].start_idx == 63 || moves[i].target_idx == 63) next_castling_rights &= ~1;
+            if (moves[i].start_idx == 56 || moves[i].target_idx == 56) next_castling_rights &= ~2;
+            if (moves[i].start_idx == 7 || moves[i].target_idx == 7) next_castling_rights &= ~4;
+            if (moves[i].start_idx == 0 || moves[i].target_idx == 0) next_castling_rights &= ~8;
+
+            int rook_start = -1, rook_target = -1;
+            if (abs(board[moves[i].start_idx]) == KING && abs(moves[i].target_idx - moves[i].start_idx) == 2) {
+                if (moves[i].target_idx == 62) { rook_start = 63; rook_target = 61; }
+                else if (moves[i].target_idx == 58) { rook_start = 56; rook_target = 59; }
+                else if (moves[i].target_idx == 6) { rook_start = 7; rook_target = 5; }
+                else if (moves[i].target_idx == 2) { rook_start = 0; rook_target = 3; }
+            }
+
+            if (rook_start != -1) {
+                board[rook_target] = board[rook_start];
+                board[rook_start] = 0;
+            }
+            
             board[moves[i].target_idx] = board[moves[i].start_idx];
             board[moves[i].start_idx] = 0;
             
-            float eval = minimax(board, depth - 1, alpha, beta, 1, move_count + 1, next_hash, search_path, ply + 1, past_hashes, num_past);
+            float eval = minimax(board, depth - 1, alpha, beta, 1, move_count + 1, next_hash, search_path, ply + 1, past_hashes, num_past, next_castling_rights);
             if (saved != 0) eval -= 0.09; 
             
             board[moves[i].start_idx] = board[moves[i].target_idx];
             board[moves[i].target_idx] = saved;
+            
+            if (rook_start != -1) {
+                board[rook_start] = board[rook_target];
+                board[rook_target] = 0;
+            }
             
             if (eval < min_eval) {
                 min_eval = eval;
@@ -380,12 +482,43 @@ float minimax(int* board, int depth, float alpha, float beta, int turn, int move
     }
 }
 
-// --- OS-AWARE EXPORT FIX ---
+// --- Opponent Repetition Threat Check ---
+// After the engine makes a candidate move (board is in post-move state),
+// enumerate all opponent responses and count how many land on a position
+// the opponent has previously been in (i.e., match a past_hash).
+// Each such response contributes a penalty to the candidate engine move.
+float opponent_repetition_penalty(int* board, int opp_turn, uint64_t* past_hashes, int num_past) {
+    if (num_past == 0) return 0.0f;
+    Move opp_moves[256];
+    int num_opp = generate_moves(board, opp_turn, opp_moves, 0);
+    float penalty = 0.0f;
+    for (int k = 0; k < num_opp; k++) {
+        int opp_saved = board[opp_moves[k].target_idx];
+        board[opp_moves[k].target_idx] = board[opp_moves[k].start_idx];
+        board[opp_moves[k].start_idx] = 0;
+
+        uint64_t h = compute_board_hash(board);
+        for (int p = 0; p < num_past; p++) {
+            if (past_hashes[p] == h) {
+                // Opponent can step back into a position they've had before
+                // Scale by recency: more-recent past positions are bigger threats
+                float recency = (float)(p + 1) / num_past; // 0..1, newer = higher index
+                penalty += 0.05f + recency * 0.10f;
+                break;
+            }
+        }
+
+        board[opp_moves[k].start_idx] = board[opp_moves[k].target_idx];
+        board[opp_moves[k].target_idx] = opp_saved;
+    }
+    return penalty;
+}
+
 extern "C" {
 #ifdef _WIN32
-    __declspec(dllexport) void get_best_move(int* board, int target_depth, int move_count, int turn, int* recent_starts, int num_recent, int* past_boards, int num_past, int* out_move) {
+    __declspec(dllexport) void get_best_move(int* board, int target_depth, int move_count, int turn, int* recent_starts, int num_recent, int* past_boards, int num_past, int castling_rights, int* out_move) {
 #else
-    void get_best_move(int* board, int target_depth, int move_count, int turn, int* recent_starts, int num_recent, int* past_boards, int num_past, int* out_move) {
+    void get_best_move(int* board, int target_depth, int move_count, int turn, int* recent_starts, int num_recent, int* past_boards, int num_past, int castling_rights, int* out_move) {
 #endif
 
         init_zobrist();
@@ -403,7 +536,7 @@ extern "C" {
         
         for (int d = 1; d <= target_depth; d++) {
             Move moves[256];
-            int num_moves = generate_moves(board, turn, moves);
+            int num_moves = generate_moves(board, turn, moves, castling_rights);
             sort(moves, moves + num_moves, move_sorter);
 
             int tt_idx = root_hash % TT_SIZE;
@@ -431,21 +564,45 @@ extern "C" {
                 next_hash ^= zobrist_table[moves[i].target_idx][p_idx];
                 next_hash ^= zobrist_turn;
 
+                int next_castling_rights = castling_rights;
+                if (moves[i].start_idx == 60 || moves[i].target_idx == 60) next_castling_rights &= ~3;
+                if (moves[i].start_idx == 4 || moves[i].target_idx == 4) next_castling_rights &= ~12;
+                if (moves[i].start_idx == 63 || moves[i].target_idx == 63) next_castling_rights &= ~1;
+                if (moves[i].start_idx == 56 || moves[i].target_idx == 56) next_castling_rights &= ~2;
+                if (moves[i].start_idx == 7 || moves[i].target_idx == 7) next_castling_rights &= ~4;
+                if (moves[i].start_idx == 0 || moves[i].target_idx == 0) next_castling_rights &= ~8;
+
+                int rook_start = -1, rook_target = -1;
+                if (abs(board[moves[i].start_idx]) == KING && abs(moves[i].target_idx - moves[i].start_idx) == 2) {
+                    if (moves[i].target_idx == 62) { rook_start = 63; rook_target = 61; }
+                    else if (moves[i].target_idx == 58) { rook_start = 56; rook_target = 59; }
+                    else if (moves[i].target_idx == 6) { rook_start = 7; rook_target = 5; }
+                    else if (moves[i].target_idx == 2) { rook_start = 0; rook_target = 3; }
+                }
+
+                if (rook_start != -1) {
+                    board[rook_target] = board[rook_start];
+                    board[rook_start] = 0;
+                }
+
                 board[moves[i].target_idx] = board[moves[i].start_idx];
                 board[moves[i].start_idx] = 0;
                 
-                float score = minimax(board, d - 1, -999999.0, 999999.0, -turn, move_count + 1, next_hash, search_path, 1, past_hashes, num_past);
+                float score = minimax(board, d - 1, -999999.0, 999999.0, -turn, move_count + 1, next_hash, search_path, 1, past_hashes, num_past, next_castling_rights);
                 if (saved != 0) score += (turn == 1) ? 0.09 : -0.09;
 
-                for (int j = 0; j < num_recent; j++) {
-                    if (moves[i].start_idx == recent_starts[j]) {
-                        float penalty = (num_recent - j) * 0.01;
-                        score += (turn == 1) ? -penalty : penalty;
-                    }
-                }
+                // Opponent repetition threat: penalize engine moves that give the opponent
+                // a response that lands on a position they've previously occupied.
+                // The board is currently in post-engine-move state (opponent to move).
+                float rep_threat = opponent_repetition_penalty(board, -turn, past_hashes, num_past);
+                score += (turn == 1) ? -rep_threat : rep_threat;
                 
                 board[moves[i].start_idx] = board[moves[i].target_idx];
                 board[moves[i].target_idx] = saved;
+                if (rook_start != -1) {
+                    board[rook_start] = board[rook_target];
+                    board[rook_target] = 0;
+                }
                 
                 if (turn == 1) {
                     if (score > best_score || (score == best_score && rand() % 2 == 0)) {
