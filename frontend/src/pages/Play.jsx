@@ -109,7 +109,7 @@ export default function Play() {
               }
             }
           }
-          setCheckSquare(kSquare);
+          console.log('CHECK SQUARE:', kSquare); setCheckSquare(kSquare);
         } else {
           setCheckSquare(null);
         }
@@ -697,7 +697,7 @@ export default function Play() {
           onMove={handlePlayerMove}
           externalLastMove={externalLastMove}
           externalSquareStyles={{
-            ...(checkSquare ? { [checkSquare]: { background: 'radial-gradient(circle, rgba(255,0,0,.4) 25%, transparent 26%)', borderRadius: '50%' } } : {})
+            ...(checkSquare ? { [checkSquare]: { background: 'radial-gradient(circle, rgba(239,68,68,0.9) 35%, transparent 35%)' } } : {})
           }}
           onFenUpdate={(newFen) => {
             // ChessBoard tracks its own chess.js state; we track sfState separately
